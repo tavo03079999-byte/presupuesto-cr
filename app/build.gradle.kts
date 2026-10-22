@@ -91,7 +91,7 @@ dependencies {
 
     // ML Kit Text Recognition (OCR)
 implementation(libs.mlkit.text.recognition)
-implementation("com.google.mlkit:text-recognition-latin:16.0.0")
+implementation("com.google.mlkit:text-recognition-latin:16.0.1")
 
     // Biometría (Huella / Rostro)
     implementation(libs.androidx.biometric)
