@@ -1,0 +1,6 @@
+# Local configuration example
+# Copia este archivo como 'local.properties' en la raíz de tu proyecto
+sdk.dir=C\:\\Users\\gustagox\\AppData\\Local\\Android\\Sdk
+
+# Gemini API Key de Google AI Studio (https://aistudio.google.com/)
+GEMINI_API_KEY=AIzaSy...TuClaveAqui
