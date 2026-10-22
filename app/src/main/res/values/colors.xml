@@ -1,0 +1,11 @@
+<resources>
+    <!-- Paleta Financiera de Alta Gama: Esmeralda, Azul BCR, Ámbar y Neutros -->
+    <color name="primary_emerald">#00875A</color>
+    <color name="primary_emerald_light">#00C853</color>
+    <color name="bcr_blue">#002F6C</color>
+    <color name="bcr_blue_dark">#001C42</color>
+    <color name="amber_warning">#FFB300</color>
+    <color name="red_danger">#D32F2F</color>
+    <color name="surface_light">#F8F9FA</color>
+    <color name="surface_dark">#121212</color>
+</resources>

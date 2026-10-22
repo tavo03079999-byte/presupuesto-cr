@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">Presupuesto Inteligente CR</string>
+    <string name="currency_symbol">₡</string>
+    <string name="currency_code">CRC</string>
+    <string name="default_user_email">tavo03079999@gmail.com</string>
+    
+    <!-- Navegación -->
+    <string name="nav_home">Inicio</string>
+    <string name="nav_transactions">Transacciones</string>
+    <string name="nav_reports">Reportes</string>
+    <string name="nav_settings">Ajustes</string>
+
+    <!-- Módulo Dinero Libre -->
+    <string name="safe_to_spend_title">Dinero Libre Hoy</string>
+    <string name="safe_to_spend_subtitle">Disponible para gastar hoy sin desajustarte</string>
+    
+    <!-- Biometría -->
+    <string name="biometric_title">Autenticación Requerida</string>
+    <string name="biometric_subtitle">Accede a tus finanzas de forma segura</string>
+    <string name="biometric_negative">Cancelar / Usar PIN</string>
+</resources>

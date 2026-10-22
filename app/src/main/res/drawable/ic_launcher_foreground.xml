@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#002F6C"
+        android:pathData="M0,0h108v108h-108z" />
+    <!-- Moneda / Círculo Esmeralda con símbolo de Colones ₡ -->
+    <path
+        android:fillColor="#00C853"
+        android:pathData="M54,20 C35.2,20 20,35.2 20,54 C20,72.8 35.2,88 54,88 C72.8,88 88,72.8 88,54 C88,35.2 72.8,20 54,20 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M52,34 L56,34 L56,40 C63,41 68,46 68,54 C68,62 63,67 56,68 L56,74 L52,74 L52,68 C45,67 40,62 40,54 L46,54 C46,59 49,63 52,63 L52,45 C45,44 40,39 40,31 C40,23 45,18 52,17 L52,11 L56,11 L56,17 C63,18 67,23 67,31 L61,31 C61,26 58,22 52,22 L52,34 Z" />
+</vector>
