@@ -58,7 +58,7 @@ class GoogleDriveBackupUseCase(
             }
 
             val driveService = Drive.Builder(
-                AndroidHttp.newCompatibleTransport(),
+                NetHttpTransport(),
                 GsonFactory.getDefaultInstance(),
                 credential
             ).setApplicationName("Presupuesto Inteligente CR").build()
