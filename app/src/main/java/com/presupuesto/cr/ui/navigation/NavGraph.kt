@@ -13,7 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -58,7 +58,7 @@ fun MainAppNavigation(
         bottomBar = {
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = NavigationBarItemDefaults.colors().indicatorColor.alpha.toInt().dp
+                tonalElevation = 0.dp
             ) {
                 screens.forEach { screen ->
                     val isSelected = currentRoute == screen.route
