@@ -7,14 +7,23 @@ import java.util.Locale
 
 object DateUtils {
     private val standardDateFormat = SimpleDateFormat("dd/MM/yyyy", Locale("es", "CR"))
-    private val friendlyDateFormat = SimpleDateFormat("dd 'de' MMMM, yyyy", Locale("es", "CR"))
+    private val friendlyDateFormat = SimpleDateFormat("dd MMM yyyy", Locale("es", "CR"))
     private val shortDateFormat = SimpleDateFormat("dd MMM", Locale("es", "CR"))
-    private val timeFormat = SimpleDateFormat("hh:mm a", Locale("es", "CR"))
+    private val monthYearFormat = SimpleDateFormat("MMMM yyyy", Locale("es", "CR"))
+    private val timeFormat = SimpleDateFormat("HH:mm", Locale("es", "CR"))
 
     fun formatDate(timestamp: Long): String = standardDateFormat.format(Date(timestamp))
     fun formatFriendly(timestamp: Long): String = friendlyDateFormat.format(Date(timestamp))
     fun formatShort(timestamp: Long): String = shortDateFormat.format(Date(timestamp))
     fun formatTime(timestamp: Long): String = timeFormat.format(Date(timestamp))
+    fun formatMonthYear(year: Int, monthZeroBased: Int): String {
+        val cal = Calendar.getInstance().apply {
+            set(Calendar.YEAR, year)
+            set(Calendar.MONTH, monthZeroBased)
+            set(Calendar.DAY_OF_MONTH, 1)
+        }
+        return monthYearFormat.format(cal.time).replaceFirstChar { it.uppercase() }
+    }
 
     fun getStartOfDay(timestamp: Long = System.currentTimeMillis()): Long {
         val calendar = Calendar.getInstance().apply {
@@ -38,10 +47,70 @@ object DateUtils {
         return calendar.timeInMillis
     }
 
-    /**
-     * Calcula los días restantes en la quincena actual (1 al 15 o 16 al fin de mes)
-     * muy común en el ciclo salarial costarricense.
-     */
+    fun getCurrentMonthBounds(): Pair<Long, Long> {
+        val startCal = Calendar.getInstance().apply {
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val endCal = Calendar.getInstance().apply {
+            set(Calendar.DAY_OF_MONTH, getActualMaximum(Calendar.DAY_OF_MONTH))
+            set(Calendar.HOUR_OF_DAY, 23)
+            set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59)
+            set(Calendar.MILLISECOND, 999)
+        }
+        return startCal.timeInMillis to endCal.timeInMillis
+    }
+
+    fun getPreviousMonthBounds(): Pair<Long, Long> {
+        val startCal = Calendar.getInstance().apply {
+            add(Calendar.MONTH, -1)
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val endCal = Calendar.getInstance().apply {
+            add(Calendar.MONTH, -1)
+            set(Calendar.DAY_OF_MONTH, getActualMaximum(Calendar.DAY_OF_MONTH))
+            set(Calendar.HOUR_OF_DAY, 23)
+            set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59)
+            set(Calendar.MILLISECOND, 999)
+        }
+        return startCal.timeInMillis to endCal.timeInMillis
+    }
+
+    fun getCurrentWeekBounds(): Pair<Long, Long> {
+        val endCal = Calendar.getInstance()
+        val startCal = Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, -6)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        return startCal.timeInMillis to getEndOfDay(endCal.timeInMillis)
+    }
+
+    fun getPreviousWeekBounds(): Pair<Long, Long> {
+        val endCal = Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, -7)
+        }
+        val startCal = Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, -13)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        return startCal.timeInMillis to getEndOfDay(endCal.timeInMillis)
+    }
+
     fun getRemainingDaysInCurrentFortnight(): Int {
         val calendar = Calendar.getInstance()
         val currentDay = calendar.get(Calendar.DAY_OF_MONTH)
@@ -54,9 +123,6 @@ object DateUtils {
         }
     }
 
-    /**
-     * Obtiene el final del periodo quincenal actual en milisegundos
-     */
     fun getEndOfCurrentFortnight(): Long {
         val calendar = Calendar.getInstance()
         val currentDay = calendar.get(Calendar.DAY_OF_MONTH)

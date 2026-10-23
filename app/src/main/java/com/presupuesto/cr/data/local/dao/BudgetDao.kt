@@ -32,15 +32,36 @@ interface BudgetDao {
     """)
     fun getBudgetsWithCategories(): Flow<List<BudgetWithCategory>>
 
+    @Query("SELECT * FROM budgets ORDER BY id ASC")
+    suspend fun getAll(): List<BudgetEntity>
+
+    @Query("SELECT * FROM budgets WHERE id = :id")
+    suspend fun getById(id: Long): BudgetEntity?
+
     @Query("SELECT * FROM budgets WHERE categoryId = :categoryId LIMIT 1")
     suspend fun getBudgetByCategory(categoryId: Long): BudgetEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBudget(budget: BudgetEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(budget: BudgetEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBudgets(budgets: List<BudgetEntity>)
+
     @Update
     suspend fun updateBudget(budget: BudgetEntity)
 
+    @Update
+    suspend fun update(budget: BudgetEntity)
+
+    @Query("DELETE FROM budgets WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
     @Delete
     suspend fun deleteBudget(budget: BudgetEntity)
+
+    @Delete
+    suspend fun delete(budget: BudgetEntity)
 }

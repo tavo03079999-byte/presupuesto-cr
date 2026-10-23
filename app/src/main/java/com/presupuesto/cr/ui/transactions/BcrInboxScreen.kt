@@ -26,7 +26,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -36,13 +35,15 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.presupuesto.cr.data.local.entity.AccountType
 import com.presupuesto.cr.data.local.entity.BcrPendingEntity
 import com.presupuesto.cr.ui.theme.BcrNavy
-import com.presupuesto.cr.ui.theme.EmeraldPrimary
+import com.presupuesto.cr.ui.theme.ExpenseRed
+import com.presupuesto.cr.ui.theme.IncomeGreen
 import com.presupuesto.cr.util.CurrencyFormatter
 import com.presupuesto.cr.util.DateUtils
 
@@ -55,7 +56,7 @@ fun BcrInboxScreen(
     val categories by viewModel.categories.collectAsState()
     val accounts by viewModel.accounts.collectAsState()
 
-    val defaultBcrAccount = accounts.find { it.accountType == com.presupuesto.cr.data.local.entity.AccountType.BANK_BCR }
+    val defaultBcrAccount = accounts.find { it.accountType == AccountType.BANK_BCR }
         ?: accounts.firstOrNull()
 
     if (pendingBcrList.isEmpty()) {
@@ -160,24 +161,28 @@ fun BcrPendingCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = item.merchant ?: "Comercio BCR",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
+                        fontSize = 15.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = "${item.cardLast4 ?: "*BCR"}  •  ${DateUtils.formatFriendly(item.timestamp)}",
                         fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
                 Text(
-                    text = CurrencyFormatter.formatCrc(item.parsedAmount),
+                    text = "- ${CurrencyFormatter.formatCrc(item.parsedAmount)}",
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = ExpenseRed
                 )
             }
 
@@ -192,6 +197,8 @@ fun BcrPendingCard(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 )
             }
@@ -216,7 +223,7 @@ fun BcrPendingCard(
 
                 Button(
                     onClick = onApprove,
-                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                    colors = ButtonDefaults.buttonColors(containerColor = IncomeGreen),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))

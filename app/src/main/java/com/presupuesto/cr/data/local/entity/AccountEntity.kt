@@ -1,5 +1,6 @@
 package com.presupuesto.cr.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -13,7 +14,11 @@ data class AccountEntity(
     val creditLimit: Double = 0.0,
     val currency: String = "CRC",
     val accountNumberMasked: String = "",
-    val colorHex: String = "#00875A",
+    val colorHex: String = "#4CAF50",
     val isIncludedInNetWorth: Boolean = true,
-    val isIncludedInSafeToSpend: Boolean = true
+    val isIncludedInSafeToSpend: Boolean = true,
+    @ColumnInfo(name = "created_at")
+    val createdAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(name = "updated_at")
+    val updatedAt: Long = System.currentTimeMillis()
 )

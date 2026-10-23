@@ -15,8 +15,14 @@ interface CategoryDao {
     @Query("SELECT * FROM categories ORDER BY id ASC")
     fun getAllCategories(): Flow<List<CategoryEntity>>
 
+    @Query("SELECT * FROM categories ORDER BY id ASC")
+    suspend fun getAll(): List<CategoryEntity>
+
     @Query("SELECT * FROM categories WHERE id = :id")
     suspend fun getCategoryById(id: Long): CategoryEntity?
+
+    @Query("SELECT * FROM categories WHERE id = :id")
+    suspend fun getById(id: Long): CategoryEntity?
 
     @Query("SELECT * FROM categories WHERE type = :type")
     fun getCategoriesByType(type: CategoryType): Flow<List<CategoryEntity>>
@@ -24,12 +30,21 @@ interface CategoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCategory(category: CategoryEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(category: CategoryEntity): Long
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertDefaultCategories(categories: List<CategoryEntity>)
 
     @Update
     suspend fun updateCategory(category: CategoryEntity)
 
+    @Update
+    suspend fun update(category: CategoryEntity)
+
     @Delete
     suspend fun deleteCategory(category: CategoryEntity)
+
+    @Delete
+    suspend fun delete(category: CategoryEntity)
 }

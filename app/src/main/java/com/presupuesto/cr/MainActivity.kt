@@ -1,9 +1,15 @@
 package com.presupuesto.cr
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -11,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fingerprint
@@ -23,33 +30,37 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.width
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import com.presupuesto.cr.domain.usecase.CalculateSafeToSpendUseCase
 import com.presupuesto.cr.domain.usecase.ExportPdfReportUseCase
 import com.presupuesto.cr.domain.usecase.ForecastEngineUseCase
 import com.presupuesto.cr.domain.usecase.GoogleDriveBackupUseCase
-import com.presupuesto.cr.domain.usecase.ProcessGeminiVoiceUseCase
 import com.presupuesto.cr.ui.auth.BiometricAuthHelper
+import com.presupuesto.cr.ui.calendar.CalendarViewModel
 import com.presupuesto.cr.ui.home.HomeViewModel
 import com.presupuesto.cr.ui.navigation.MainAppNavigation
 import com.presupuesto.cr.ui.ocr.ReceiptScannerHelper
 import com.presupuesto.cr.ui.reports.ReportsViewModel
 import com.presupuesto.cr.ui.settings.SettingsViewModel
-import com.presupuesto.cr.ui.theme.BcrNavy
-import com.presupuesto.cr.ui.theme.EmeraldPrimary
+import com.presupuesto.cr.ui.theme.BackgroundDark
+import com.presupuesto.cr.ui.theme.CyanNeon
 import com.presupuesto.cr.ui.theme.PresupuestoCRTheme
+import com.presupuesto.cr.ui.theme.SurfaceDark
+import com.presupuesto.cr.ui.theme.ThemeBlue
 import com.presupuesto.cr.ui.transactions.TransactionsViewModel
 
 class MainActivity : FragmentActivity() {
@@ -62,23 +73,20 @@ class MainActivity : FragmentActivity() {
         val app = application as PresupuestoApp
         val repository = app.repository
 
-        // Inicialización de Use Cases
         val calculateSafeToSpendUseCase = CalculateSafeToSpendUseCase(repository)
         val forecastEngineUseCase = ForecastEngineUseCase(repository)
-        val processGeminiVoiceUseCase = ProcessGeminiVoiceUseCase(repository)
         val exportPdfReportUseCase = ExportPdfReportUseCase(this, repository, calculateSafeToSpendUseCase)
         val googleDriveBackupUseCase = GoogleDriveBackupUseCase(this)
         val receiptScannerHelper = ReceiptScannerHelper(this)
 
-        // ViewModels
         val homeViewModel = HomeViewModel(
             repository = repository,
             calculateSafeToSpendUseCase = calculateSafeToSpendUseCase,
-            forecastEngineUseCase = forecastEngineUseCase,
-            processGeminiVoiceUseCase = processGeminiVoiceUseCase
+            forecastEngineUseCase = forecastEngineUseCase
         )
 
         val transactionsViewModel = TransactionsViewModel(
+            context = this,
             repository = repository,
             receiptScannerHelper = receiptScannerHelper
         )
@@ -89,10 +97,16 @@ class MainActivity : FragmentActivity() {
             exportPdfReportUseCase = exportPdfReportUseCase
         )
 
+        val calendarViewModel = CalendarViewModel(
+            context = this,
+            repository = repository
+        )
+
         val settingsViewModel = SettingsViewModel(
             context = this,
             repository = repository,
-            googleDriveBackupUseCase = googleDriveBackupUseCase
+            googleDriveBackupUseCase = googleDriveBackupUseCase,
+            exportPdfReportUseCase = exportPdfReportUseCase
         )
 
         biometricAuthHelper = BiometricAuthHelper(this)
@@ -101,7 +115,25 @@ class MainActivity : FragmentActivity() {
         val isBiometricConfigured = prefs.getBoolean("biometric_enabled", true)
 
         setContent {
-            PresupuestoCRTheme {
+            val isDarkMode by settingsViewModel.isDarkThemeEnabled.collectAsState()
+
+            val notificationPermissionLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.RequestPermission()
+            ) { _ -> }
+
+            LaunchedEffect(Unit) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val granted = ContextCompat.checkSelfPermission(
+                        this@MainActivity,
+                        Manifest.permission.POST_NOTIFICATIONS
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (!granted) {
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                }
+            }
+
+            PresupuestoCRTheme(darkTheme = isDarkMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -112,7 +144,7 @@ class MainActivity : FragmentActivity() {
                     LaunchedEffect(Unit) {
                         if (isBiometricConfigured && biometricAuthHelper.canAuthenticate()) {
                             biometricAuthHelper.showBiometricPrompt(
-                                title = "Presupuesto Inteligente CR",
+                                title = "PresupuestoCR",
                                 subtitle = "Desbloquea con tu huella dactilar o rostro",
                                 onSuccess = {
                                     isAuthenticated = true
@@ -132,16 +164,16 @@ class MainActivity : FragmentActivity() {
                             homeViewModel = homeViewModel,
                             transactionsViewModel = transactionsViewModel,
                             reportsViewModel = reportsViewModel,
+                            calendarViewModel = calendarViewModel,
                             settingsViewModel = settingsViewModel,
                             googleDriveBackupUseCase = googleDriveBackupUseCase
                         )
                     } else {
-                        // Pantalla de Bloqueo de Seguridad
                         LockScreen(
                             errorMessage = authError,
                             onRetryAuth = {
                                 biometricAuthHelper.showBiometricPrompt(
-                                    title = "Presupuesto Inteligente CR",
+                                    title = "PresupuestoCR",
                                     subtitle = "Desbloquea con tu huella dactilar o rostro",
                                     onSuccess = {
                                         isAuthenticated = true
@@ -168,7 +200,11 @@ fun LockScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BcrNavy),
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(BackgroundDark, SurfaceDark)
+                )
+            ),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -177,14 +213,15 @@ fun LockScreen(
         ) {
             Box(
                 modifier = Modifier
-                    .size(80.dp)
-                    .background(Color.White.copy(alpha = 0.1f), CircleShape),
+                    .size(84.dp)
+                    .background(ThemeBlue.copy(alpha = 0.16f), CircleShape)
+                    .border(1.5.dp, CyanNeon.copy(alpha = 0.55f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Lock,
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = CyanNeon,
                     modifier = Modifier.size(40.dp)
                 )
             }
@@ -192,18 +229,22 @@ fun LockScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "Presupuesto Inteligente CR",
+                text = "PresupuestoCR",
                 color = Color.White,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold
+                fontSize = 24.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
                 text = "Sesión protegida para tavo03079999@gmail.com",
-                color = Color.White.copy(alpha = 0.7f),
-                fontSize = 12.sp
+                color = Color.White.copy(alpha = 0.72f),
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
             if (errorMessage != null) {
@@ -219,13 +260,17 @@ fun LockScreen(
 
             Button(
                 onClick = onRetryAuth,
-                colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                colors = ButtonDefaults.buttonColors(containerColor = ThemeBlue),
                 shape = CircleShape,
-                modifier = Modifier.height(48.dp)
+                modifier = Modifier.height(50.dp)
             ) {
-                Icon(Icons.Default.Fingerprint, contentDescription = null)
+                Icon(Icons.Default.Fingerprint, contentDescription = null, tint = Color.White)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Desbloquear con Biometría", fontWeight = FontWeight.Bold)
+                Text(
+                    text = "Desbloquear con Biometría",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }

@@ -12,17 +12,14 @@ android {
         applicationId = "com.presupuesto.cr"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "2.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
 
-        // Configuración de la API Key de Gemini desde local.properties o valor por defecto
-        val geminiKey = project.findProperty("GEMINI_API_KEY") as? String ?: ""
-        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiKey\"")
         buildConfigField("String", "LINKED_USER_EMAIL", "\"tavo03079999@gmail.com\"")
     }
 
@@ -70,7 +67,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
 
-    // Jetpack Compose
+    // Jetpack Compose + Material3
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
@@ -79,19 +76,15 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
 
-    // Room DB + SQLCipher (Cifrado local grado militar)
+    // Room DB + SQLCipher
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     kapt(libs.androidx.room.compiler)
     implementation(libs.sqlcipher)
     implementation(libs.sqlite.ktx)
 
-    // Gemini Generative AI SDK
-    implementation(libs.google.generativeai)
-
-    // ML Kit Text Recognition (OCR)
-implementation(libs.mlkit.text.recognition)
-implementation("com.google.mlkit:text-recognition:16.0.1")
+    // ML Kit Text Recognition (OCR 16.0.1)
+    implementation(libs.mlkit.text.recognition)
 
     // Biometría (Huella / Rostro)
     implementation(libs.androidx.biometric)
@@ -99,7 +92,12 @@ implementation("com.google.mlkit:text-recognition:16.0.1")
     // Google Drive SDK & Auth
     implementation(libs.play.services.auth)
     implementation(libs.google.api.client.android)
+    implementation(libs.google.http.client.gson)
     implementation(libs.google.api.services.drive)
+
+    // WorkManager & Coil
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.coil.compose)
 
     // Corrutinas & Gson
     implementation(libs.kotlinx.coroutines.android)

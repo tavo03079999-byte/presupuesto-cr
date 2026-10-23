@@ -4,16 +4,14 @@
 
     <!-- Permisos de Seguridad y Biometría -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
-    <uses-permission android:name="android.permission.USE_FINGERPRINT" tools:node="remove" />
 
-    <!-- Permisos de Voz y Grabación para Gemini AI -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-
-    <!-- Permisos de Cámara y Archivos para OCR de Comprobantes -->
+    <!-- Permisos de Cámara, Galería y Notificaciones -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
-    <!-- Conectividad para Gemini API y Google Drive Backup -->
+    <!-- Conectividad para Google Drive Backup -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
@@ -52,7 +50,7 @@
             </intent-filter>
         </service>
 
-        <!-- FileProvider para compartir y exportar reportes PDF -->
+        <!-- FileProvider para compartir y exportar reportes CSV / PDF -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

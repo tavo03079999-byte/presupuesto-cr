@@ -6,16 +6,15 @@ import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.Scope
-import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
+import com.google.api.client.http.FileContent
+import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import com.google.api.services.drive.model.File as DriveFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Collections
@@ -61,7 +60,7 @@ class GoogleDriveBackupUseCase(
                 NetHttpTransport(),
                 GsonFactory.getDefaultInstance(),
                 credential
-            ).setApplicationName("Presupuesto Inteligente CR").build()
+            ).setApplicationName("PresupuestoCR").build()
 
             val dbFile = context.getDatabasePath(DB_FILE_NAME)
             if (!dbFile.exists()) {
@@ -71,17 +70,17 @@ class GoogleDriveBackupUseCase(
             val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
             val metadata = DriveFile().apply {
                 name = "Backup_PresupuestoCR_${timeStamp}.db"
-                description = "Respaldo seguro cifrado de Presupuesto CR para $TARGET_ACCOUNT_EMAIL"
+                description = "Respaldo seguro cifrado de PresupuestoCR para $TARGET_ACCOUNT_EMAIL"
             }
 
-            val mediaContent = com.google.api.client.http.FileContent("application/x-sqlite3", dbFile)
+            val mediaContent = FileContent("application/x-sqlite3", dbFile)
             val uploadedFile = driveService.files().create(metadata, mediaContent)
                 .setFields("id, name, createdTime")
                 .execute()
 
             Result.success("Respaldo exitoso en Google Drive: ${uploadedFile.name}")
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception("No fue posible completar el respaldo en Google Drive. Verifica tu conexión a internet."))
         }
     }
 
@@ -98,7 +97,7 @@ class GoogleDriveBackupUseCase(
                 NetHttpTransport(),
                 GsonFactory.getDefaultInstance(),
                 credential
-            ).setApplicationName("Presupuesto Inteligente CR").build()
+            ).setApplicationName("PresupuestoCR").build()
 
             val destinationDb = context.getDatabasePath(DB_FILE_NAME)
             FileOutputStream(destinationDb).use { output ->
@@ -107,7 +106,7 @@ class GoogleDriveBackupUseCase(
 
             Result.success("Base de datos restaurada correctamente desde Google Drive")
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception("No fue posible restaurar la copia de seguridad desde Google Drive."))
         }
     }
 }

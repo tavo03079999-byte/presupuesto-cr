@@ -17,15 +17,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,16 +36,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.presupuesto.cr.domain.model.FinancialHealthStatus
 import com.presupuesto.cr.domain.model.SafeToSpendResult
 import com.presupuesto.cr.ui.theme.BcrNavy
-import com.presupuesto.cr.ui.theme.DangerRed
-import com.presupuesto.cr.ui.theme.EmeraldDark
-import com.presupuesto.cr.ui.theme.EmeraldLight
-import com.presupuesto.cr.ui.theme.EmeraldPrimary
+import com.presupuesto.cr.ui.theme.ExpenseRed
 import com.presupuesto.cr.ui.theme.GoldAmber
+import com.presupuesto.cr.ui.theme.IncomeGreen
+import com.presupuesto.cr.ui.theme.ThemeBlue
 import com.presupuesto.cr.util.CurrencyFormatter
 
 @Composable
@@ -60,10 +58,10 @@ fun SafeToSpendCard(
     var isExpanded by remember { mutableStateOf(false) }
 
     val statusColor = when (safeToSpend.healthStatus) {
-        FinancialHealthStatus.EXCELLENT -> EmeraldLight
-        FinancialHealthStatus.STABLE -> Color(0xFF29B6F6)
+        FinancialHealthStatus.EXCELLENT -> IncomeGreen
+        FinancialHealthStatus.STABLE -> ThemeBlue
         FinancialHealthStatus.WARNING -> GoldAmber
-        FinancialHealthStatus.CRITICAL -> DangerRed
+        FinancialHealthStatus.CRITICAL -> ExpenseRed
     }
 
     val statusLabel = when (safeToSpend.healthStatus) {
@@ -92,24 +90,27 @@ fun SafeToSpendCard(
                 .padding(20.dp)
         ) {
             Column {
-                // Fila Superior: Título + Badge de Salud
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "DINERO LIBRE HOY",
                             color = Color(0xFFB0BEC5),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
+                            letterSpacing = 1.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = "Disponible sin desajustarte",
                             color = Color.White.copy(alpha = 0.7f),
-                            fontSize = 11.sp
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
@@ -131,7 +132,9 @@ fun SafeToSpendCard(
                                 text = statusLabel,
                                 color = statusColor,
                                 fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -139,40 +142,45 @@ fun SafeToSpendCard(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Monto Principal Destacado (Diario)
                 Text(
                     text = CurrencyFormatter.formatCrc(safeToSpend.safeToSpendDailyToday),
                     color = Color.White,
                     fontSize = 34.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Resumen del Periodo Quincenal
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
                         text = "Total quincena: ${CurrencyFormatter.formatCrc(safeToSpend.totalSafeToSpendFortnight)}",
                         color = Color.White.copy(alpha = 0.85f),
-                        fontSize = 13.sp
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "•  ${safeToSpend.daysRemainingInPeriod} días restantes",
                         color = Color(0xFF90CAF9),
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Mensaje Contextual de IA / Algoritmo
                 Surface(
                     color = Color.White.copy(alpha = 0.08f),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
                         modifier = Modifier.padding(10.dp),
@@ -195,7 +203,6 @@ fun SafeToSpendCard(
                     }
                 }
 
-                // Botón expandible para ver el desglose matemático
                 Spacer(modifier = Modifier.height(10.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -216,20 +223,19 @@ fun SafeToSpendCard(
                     )
                 }
 
-                // Desglose de la Fórmula en Tiempo Real
                 AnimatedVisibility(visible = isExpanded) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 12.dp)
                     ) {
-                        Divider(color = Color.White.copy(alpha = 0.15f))
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        FormulaRow("Saldo Total Líquido:", "+ ${CurrencyFormatter.formatCrc(safeToSpend.totalAvailableInAccounts)}", Color(0xFF81C784))
-                        FormulaRow("Gastos Fijos Pendientes:", "- ${CurrencyFormatter.formatCrc(safeToSpend.pendingFixedExpenses)}", Color(0xFFE57373))
+                        FormulaRow("Saldo Total Líquido:", "+ ${CurrencyFormatter.formatCrc(safeToSpend.totalAvailableInAccounts)}", IncomeGreen)
+                        FormulaRow("Gastos Fijos Pendientes:", "- ${CurrencyFormatter.formatCrc(safeToSpend.pendingFixedExpenses)}", ExpenseRed)
                         FormulaRow("Metas de Ahorro / Inversión:", "- ${CurrencyFormatter.formatCrc(safeToSpend.pendingScheduledSavings)}", Color(0xFFFFD54F))
-                        FormulaRow("Deuda Tarjetas BCR Próximas:", "- ${CurrencyFormatter.formatCrc(safeToSpend.upcomingCreditCardDebt)}", Color(0xFFEF5350))
+                        FormulaRow("Deuda Tarjetas BCR Próximas:", "- ${CurrencyFormatter.formatCrc(safeToSpend.upcomingCreditCardDebt)}", ExpenseRed)
                     }
                 }
             }
@@ -245,7 +251,19 @@ private fun FormulaRow(label: String, value: String, valueColor: Color) {
             .padding(vertical = 3.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(text = label, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
-        Text(text = value, color = valueColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text(
+            text = label,
+            color = Color.White.copy(alpha = 0.7f),
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = value,
+            color = valueColor,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }

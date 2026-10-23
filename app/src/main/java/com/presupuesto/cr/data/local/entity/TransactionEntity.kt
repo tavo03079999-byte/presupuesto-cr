@@ -1,5 +1,6 @@
 package com.presupuesto.cr.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -40,5 +41,9 @@ data class TransactionEntity(
     val isRecurring: Boolean = false,
     val recurringMovementId: Long? = null,
     val source: TransactionSource = TransactionSource.MANUAL,
-    val receiptImagePath: String? = null
+    val receiptImagePath: String? = null,
+    @ColumnInfo(name = "created_at")
+    val createdAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(name = "updated_at")
+    val updatedAt: Long = System.currentTimeMillis()
 )

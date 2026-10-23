@@ -14,8 +14,14 @@ interface AccountDao {
     @Query("SELECT * FROM accounts ORDER BY id ASC")
     fun getAllAccounts(): Flow<List<AccountEntity>>
 
+    @Query("SELECT * FROM accounts ORDER BY id ASC")
+    suspend fun getAll(): List<AccountEntity>
+
     @Query("SELECT * FROM accounts WHERE id = :id")
     suspend fun getAccountById(id: Long): AccountEntity?
+
+    @Query("SELECT * FROM accounts WHERE id = :id")
+    suspend fun getById(id: Long): AccountEntity?
 
     @Query("SELECT SUM(currentBalance) FROM accounts WHERE isIncludedInNetWorth = 1")
     fun getNetWorthFlow(): Flow<Double?>
@@ -30,14 +36,23 @@ interface AccountDao {
     suspend fun insertAccount(account: AccountEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(account: AccountEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAccounts(accounts: List<AccountEntity>)
 
     @Update
     suspend fun updateAccount(account: AccountEntity)
 
-    @Query("UPDATE accounts SET currentBalance = currentBalance + :amountDelta WHERE id = :accountId")
-    suspend fun updateBalance(accountId: Long, amountDelta: Double)
+    @Update
+    suspend fun update(account: AccountEntity)
+
+    @Query("UPDATE accounts SET currentBalance = currentBalance + :amountDelta, updated_at = :updatedAt WHERE id = :accountId")
+    suspend fun updateBalance(accountId: Long, amountDelta: Double, updatedAt: Long)
 
     @Delete
     suspend fun deleteAccount(account: AccountEntity)
+
+    @Delete
+    suspend fun delete(account: AccountEntity)
 }

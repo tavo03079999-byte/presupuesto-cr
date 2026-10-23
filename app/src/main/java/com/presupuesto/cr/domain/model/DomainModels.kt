@@ -1,11 +1,30 @@
 package com.presupuesto.cr.domain.model
 
 enum class FinancialHealthStatus {
-    EXCELLENT,   // Safe-to-spend holgado (> ₡15.000 / día)
-    STABLE,      // Safe-to-spend moderado (₡5.000 - ₡15.000 / día)
-    WARNING,     // Safe-to-spend ajustado (₡1.000 - ₡5.000 / día)
-    CRITICAL     // En riesgo de déficit (< ₡1.000 o negativo)
+    EXCELLENT,
+    STABLE,
+    WARNING,
+    CRITICAL
 }
+
+enum class BudgetAlertLevel {
+    NORMAL,
+    WARNING_80,
+    EXCEEDED_100
+}
+
+data class CategoryBudgetProgress(
+    val budgetId: Long,
+    val categoryId: Long,
+    val categoryName: String,
+    val categoryColorHex: String,
+    val iconName: String,
+    val spentAmount: Double,
+    val limitAmount: Double,
+    val remainingAmount: Double,
+    val percentageUsed: Double,
+    val alertLevel: BudgetAlertLevel
+)
 
 data class SafeToSpendResult(
     val totalAvailableInAccounts: Double,
@@ -29,7 +48,7 @@ data class ForecastPoint(
 )
 
 data class ForecastResult(
-    val periodDays: Int, // 90 días (3 meses) o 180 días (6 meses)
+    val periodDays: Int,
     val points: List<ForecastPoint>,
     val minProjectedBalance: Double,
     val maxProjectedBalance: Double,

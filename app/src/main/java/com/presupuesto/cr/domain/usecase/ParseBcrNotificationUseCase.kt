@@ -11,15 +11,12 @@ class ParseBcrNotificationUseCase(
     suspend operator fun invoke(notificationTitle: String, notificationBody: String): BcrPendingEntity? {
         val fullText = "$notificationTitle $notificationBody".trim()
 
-        // Verificar si es una notificación del Banco de Costa Rica
         val isBcr = fullText.contains("BCR", ignoreCase = true) ||
-                fullText.contains("Banco de Costa Rica", ignoreCase = true) ||
-                fullText.contains("SINPE", ignoreCase = true)
+            fullText.contains("Banco de Costa Rica", ignoreCase = true) ||
+            fullText.contains("SINPE", ignoreCase = true)
 
         if (!isBcr) return null
 
-        // 1. Extraer Monto en Colones
-        // Formatos típicos: "CRC 18,500.00", "₡18.500", "monto de 18,500.00", "por ₡25,000"
         var parsedAmount = 0.0
         val amountRegex = Regex("""(?:CRC|₡|monto(?:\s+de)?|por)\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})?)""", RegexOption.IGNORE_CASE)
         val amountMatch = amountRegex.find(fullText)
@@ -30,7 +27,6 @@ class ParseBcrNotificationUseCase(
             parsedAmount = rawNum.toDoubleOrNull() ?: 0.0
         }
 
-        // Si no se detectó monto, buscar cualquier número significativo
         if (parsedAmount == 0.0) {
             val generalNumberRegex = Regex("""\b([0-9]{1,3}(?:[.,][0-9]{3})+)\b""")
             val generalMatch = generalNumberRegex.find(fullText)
@@ -42,7 +38,6 @@ class ParseBcrNotificationUseCase(
 
         if (parsedAmount <= 0.0) return null
 
-        // 2. Extraer Comercio o Destinatario
         var merchant: String? = null
         val merchantRegex = Regex("""(?:en|comercio|en el comercio|a)\s+([A-Za-z0-9\s\.\-]{3,30}?)(?:\s+(?:el|con|por|tarjeta|fecha)|$)""", RegexOption.IGNORE_CASE)
         val merchantMatch = merchantRegex.find(fullText)
@@ -50,7 +45,6 @@ class ParseBcrNotificationUseCase(
             merchant = merchantMatch.groupValues[1].trim()
         }
 
-        // 3. Extraer Terminación de Tarjeta
         var cardLast4: String? = null
         val cardRegex = Regex("""(?:tarjeta|cta|cuenta|\*)\s*(\d{4})""", RegexOption.IGNORE_CASE)
         val cardMatch = cardRegex.find(fullText)
@@ -58,7 +52,6 @@ class ParseBcrNotificationUseCase(
             cardLast4 = "*${cardMatch.groupValues[1]}"
         }
 
-        // 4. Sugerir Categoría inteligente en base al comercio
         val categories = repository.getAllCategories().first()
         val suggestedCategoryId = matchCategoryFromMerchant(merchant ?: fullText, categories)?.id
 
@@ -76,15 +69,20 @@ class ParseBcrNotificationUseCase(
     private fun matchCategoryFromMerchant(text: String, categories: List<CategoryEntity>): CategoryEntity? {
         val lower = text.lowercase()
         return when {
-            lower.contains("carne") || lower.contains("carniceria") || lower.contains("carnicería") || lower.contains("beef") ->
-                categories.find { it.name.contains("Carne", ignoreCase = true) }
-            lower.contains("super") || lower.contains("súper") || lower.contains("walmart") || lower.contains("automercado") || lower.contains("pali") || lower.contains("palí") || lower.contains("masxmenos") ->
-                categories.find { it.name.contains("Comida", ignoreCase = true) }
-            lower.contains("ice") || lower.contains("kolbi") || lower.contains("kölbi") || lower.contains("cnfl") || lower.contains("aya") || lower.contains("esph") || lower.contains("telecable") || lower.contains("liberty") ->
+            lower.contains("super") || lower.contains("súper") || lower.contains("walmart") ||
+                lower.contains("automercado") || lower.contains("pali") || lower.contains("palí") ||
+                lower.contains("masxmenos") || lower.contains("restaurante") || lower.contains("comida") ->
+                categories.find { it.name.contains("Aliment", ignoreCase = true) || it.name.contains("Comida", ignoreCase = true) }
+            lower.contains("uber") || lower.contains("didi") || lower.contains("gasolin") || lower.contains("delta") || lower.contains("uno") ->
+                categories.find { it.name.contains("Transporte", ignoreCase = true) }
+            lower.contains("farmacia") || lower.contains("hospital") || lower.contains("clinica") || lower.contains("clínica") ->
+                categories.find { it.name.contains("Salud", ignoreCase = true) }
+            lower.contains("ice") || lower.contains("kolbi") || lower.contains("kölbi") || lower.contains("cnfl") ||
+                lower.contains("aya") || lower.contains("esph") || lower.contains("telecable") || lower.contains("liberty") ->
                 categories.find { it.name.contains("Servicios", ignoreCase = true) }
-            lower.contains("smart") || lower.contains("gym") || lower.contains("fitness") || lower.contains("gimnasio") ->
-                categories.find { it.name.contains("Gym", ignoreCase = true) }
-            else -> null
+            lower.contains("cine") || lower.contains("spotify") || lower.contains("netflix") || lower.contains("juego") ->
+                categories.find { it.name.contains("Entretenimiento", ignoreCase = true) }
+            else -> categories.find { it.name.contains("Otros", ignoreCase = true) }
         }
     }
 }

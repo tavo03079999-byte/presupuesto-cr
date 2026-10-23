@@ -32,10 +32,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.presupuesto.cr.data.local.entity.AccountEntity
 import com.presupuesto.cr.data.local.entity.AccountType
+import com.presupuesto.cr.ui.theme.ExpenseRed
+import com.presupuesto.cr.ui.theme.IncomeGreen
 import com.presupuesto.cr.util.CurrencyFormatter
 
 @Composable
@@ -54,14 +57,19 @@ fun QuickWalletRow(
             Text(
                 text = "Tus Cuentas y Carteras",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
             )
             val netWorth = accounts.sumOf { it.currentBalance }
             Text(
                 text = "Global: ${CurrencyFormatter.formatCrc(netWorth)}",
-                color = MaterialTheme.colorScheme.primary,
+                color = if (netWorth >= 0) IncomeGreen else ExpenseRed,
                 fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
 
@@ -134,7 +142,9 @@ fun WalletAccountCard(
                     Text(
                         text = account.accountNumberMasked,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -145,6 +155,7 @@ fun WalletAccountCard(
                 Text(
                     text = account.name,
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -153,7 +164,9 @@ fun WalletAccountCard(
                     text = CurrencyFormatter.formatCrc(account.currentBalance),
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
-                    color = if (account.currentBalance < 0) Color(0xFFE53935) else MaterialTheme.colorScheme.onSurface
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = if (account.currentBalance < 0) ExpenseRed else IncomeGreen
                 )
             }
         }

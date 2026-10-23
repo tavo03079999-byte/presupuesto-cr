@@ -1,5 +1,6 @@
 package com.presupuesto.cr.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -14,5 +15,9 @@ data class BcrPendingEntity(
     val timestamp: Long = System.currentTimeMillis(),
     val suggestedCategoryId: Long? = null,
     val suggestedAccountId: Long? = null,
-    val isProcessed: Boolean = false
+    val isProcessed: Boolean = false,
+    @ColumnInfo(name = "created_at")
+    val createdAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(name = "updated_at")
+    val updatedAt: Long = System.currentTimeMillis()
 )

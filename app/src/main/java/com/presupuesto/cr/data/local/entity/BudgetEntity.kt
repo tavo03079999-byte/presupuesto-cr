@@ -1,5 +1,6 @@
 package com.presupuesto.cr.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -23,6 +24,10 @@ data class BudgetEntity(
     val categoryId: Long,
     val period: BudgetPeriod = BudgetPeriod.MONTHLY,
     val limitAmount: Double,
-    val alertThresholdPercent: Double = 75.0, // Verde <75%, Amarillo 75-90%, Rojo >90%
-    val startDate: Long = System.currentTimeMillis()
+    val alertThresholdPercent: Double = 80.0,
+    val startDate: Long = System.currentTimeMillis(),
+    @ColumnInfo(name = "created_at")
+    val createdAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(name = "updated_at")
+    val updatedAt: Long = System.currentTimeMillis()
 )

@@ -1,13 +1,7 @@
 package com.presupuesto.cr.data.repository
 
-import com.presupuesto.cr.data.local.dao.AccountDao
-import com.presupuesto.cr.data.local.dao.BcrPendingDao
-import com.presupuesto.cr.data.local.dao.BudgetDao
 import com.presupuesto.cr.data.local.dao.BudgetWithCategory
-import com.presupuesto.cr.data.local.dao.CategoryDao
 import com.presupuesto.cr.data.local.dao.CategoryTotal
-import com.presupuesto.cr.data.local.dao.RecurringMovementDao
-import com.presupuesto.cr.data.local.dao.TransactionDao
 import com.presupuesto.cr.data.local.entity.AccountEntity
 import com.presupuesto.cr.data.local.entity.BcrPendingEntity
 import com.presupuesto.cr.data.local.entity.BudgetEntity
@@ -27,11 +21,13 @@ interface FinanceRepository {
     suspend fun updateAccountBalance(accountId: Long, amountDelta: Double)
     suspend fun insertAccount(account: AccountEntity): Long
 
-    // Categorías
+    // Categorías Personalizadas
     fun getAllCategories(): Flow<List<CategoryEntity>>
     suspend fun getCategoryById(id: Long): CategoryEntity?
     fun getCategoriesByType(type: CategoryType): Flow<List<CategoryEntity>>
     suspend fun insertCategory(category: CategoryEntity): Long
+    suspend fun updateCategory(category: CategoryEntity)
+    suspend fun deleteCategory(category: CategoryEntity)
 
     // Transacciones
     fun getAllTransactions(): Flow<List<TransactionEntity>>
@@ -39,11 +35,13 @@ interface FinanceRepository {
     suspend fun getTransactionsBetweenSync(startTime: Long, endTime: Long): List<TransactionEntity>
     fun getTotalByTypeBetween(type: CategoryType, startTime: Long, endTime: Long): Flow<Double?>
     suspend fun getTotalByTypeBetweenSync(type: CategoryType, startTime: Long, endTime: Long): Double
+    suspend fun getCategorySpentBetweenSync(categoryId: Long, startTime: Long, endTime: Long): Double
     fun getExpenseSummaryByCategory(startTime: Long, endTime: Long): Flow<List<CategoryTotal>>
     suspend fun insertTransaction(transaction: TransactionEntity): Long
+    suspend fun updateTransaction(oldTransaction: TransactionEntity, newTransaction: TransactionEntity)
     suspend fun deleteTransaction(transaction: TransactionEntity)
 
-    // Recurrentes y Gastos Fijos
+    // Recurrentes y Recordatorios de Pago
     fun getActiveRecurringMovements(): Flow<List<RecurringMovementEntity>>
     fun getAllRecurringMovements(): Flow<List<RecurringMovementEntity>>
     suspend fun getPendingMovementsForCurrentPeriod(): List<RecurringMovementEntity>
@@ -52,11 +50,16 @@ interface FinanceRepository {
     fun getPendingScheduledSavingsFlow(): Flow<Double?>
     suspend fun getPendingScheduledSavingsSync(): Double
     suspend fun insertRecurringMovement(movement: RecurringMovementEntity): Long
+    suspend fun updateRecurringMovement(movement: RecurringMovementEntity)
+    suspend fun deleteRecurringMovement(movement: RecurringMovementEntity)
     suspend fun setRecurringPaidStatus(id: Long, isPaid: Boolean)
 
-    // Presupuestos
+    // Presupuestos por Categoría
     fun getBudgetsWithCategories(): Flow<List<BudgetWithCategory>>
+    suspend fun getBudgetByCategory(categoryId: Long): BudgetEntity?
     suspend fun insertBudget(budget: BudgetEntity): Long
+    suspend fun saveMonthlyBudgetForCategory(categoryId: Long, limitAmount: Double)
+    suspend fun deleteBudgetById(budgetId: Long)
 
     // Bandeja BCR
     fun getPendingBcrTransactions(): Flow<List<BcrPendingEntity>>
