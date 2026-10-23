@@ -20,6 +20,8 @@ android {
             useSupportLibrary = true
         }
 
+        val geminiApiKey = System.getenv("GEMINI_API_KEY") ?: ""
+        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
         buildConfigField("String", "LINKED_USER_EMAIL", "\"tavo03079999@gmail.com\"")
     }
 
@@ -85,6 +87,9 @@ dependencies {
 
     // ML Kit Text Recognition (OCR 16.0.1)
     implementation(libs.mlkit.text.recognition)
+
+    // Google Gemini AI SDK (0.9.0)
+    implementation(libs.google.generativeai)
 
     // Biometría (Huella / Rostro)
     implementation(libs.androidx.biometric)

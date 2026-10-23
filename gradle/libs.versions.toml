@@ -9,6 +9,7 @@ navigationCompose = "2.7.7"
 room = "2.6.1"
 sqlcipher = "4.5.4"
 mlkitTextRecognition = "16.0.1"
+generativeai = "0.9.0"
 biometric = "1.1.0"
 playServicesAuth = "21.1.1"
 googleApiClient = "2.2.0"
@@ -42,6 +43,9 @@ sqlite-ktx = { group = "androidx.sqlite", name = "sqlite-ktx", version = "2.4.0"
 
 # ML Kit OCR Text Recognition (Bundled Stable 16.0.1)
 mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "mlkitTextRecognition" }
+
+# Google Gemini AI Client SDK (Stable 0.9.0)
+google-generativeai = { group = "com.google.ai.client.generativeai", name = "generativeai", version.ref = "generativeai" }
 
 # Biometría (Versión Estable)
 androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
