@@ -8,6 +8,7 @@ import android.os.Bundle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -19,9 +20,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fingerprint
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -37,8 +38,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -144,7 +148,7 @@ class MainActivity : FragmentActivity() {
                     LaunchedEffect(Unit) {
                         if (isBiometricConfigured && biometricAuthHelper.canAuthenticate()) {
                             biometricAuthHelper.showBiometricPrompt(
-                                title = "PresupuestoCR",
+                                title = "SaldoX",
                                 subtitle = "Desbloquea con tu huella dactilar o rostro",
                                 onSuccess = {
                                     isAuthenticated = true
@@ -173,7 +177,7 @@ class MainActivity : FragmentActivity() {
                             errorMessage = authError,
                             onRetryAuth = {
                                 biometricAuthHelper.showBiometricPrompt(
-                                    title = "PresupuestoCR",
+                                    title = "SaldoX",
                                     subtitle = "Desbloquea con tu huella dactilar o rostro",
                                     onSuccess = {
                                         isAuthenticated = true
@@ -211,27 +215,22 @@ fun LockScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(32.dp)
         ) {
-            Box(
+            Image(
+                painter = painterResource(id = R.drawable.saldox_logo),
+                contentDescription = "Logo SaldoX",
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(84.dp)
-                    .background(ThemeBlue.copy(alpha = 0.16f), CircleShape)
-                    .border(1.5.dp, CyanNeon.copy(alpha = 0.55f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Lock,
-                    contentDescription = null,
-                    tint = CyanNeon,
-                    modifier = Modifier.size(40.dp)
-                )
-            }
+                    .size(116.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .border(1.5.dp, CyanNeon.copy(alpha = 0.55f), RoundedCornerShape(28.dp))
+            )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             Text(
-                text = "PresupuestoCR",
+                text = "SaldoX",
                 color = Color.White,
-                fontSize = 24.sp,
+                fontSize = 26.sp,
                 fontWeight = FontWeight.ExtraBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

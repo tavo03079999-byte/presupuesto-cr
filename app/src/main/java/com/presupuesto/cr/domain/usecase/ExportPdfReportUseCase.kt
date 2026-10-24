@@ -41,7 +41,7 @@ class ExportPdfReportUseCase(
         }
 
         val reportsDir = File(context.getExternalFilesDir(null), "reports").apply { mkdirs() }
-        val file = File(reportsDir, "Transacciones_PresupuestoCR_${System.currentTimeMillis()}.csv")
+        val file = File(reportsDir, "Transacciones_SaldoX_${System.currentTimeMillis()}.csv")
 
         FileOutputStream(file).use { fos ->
             BufferedWriter(OutputStreamWriter(fos, Charsets.UTF_8)).use { writer ->
@@ -145,14 +145,14 @@ class ExportPdfReportUseCase(
 
         fun drawFooter() {
             canvas.drawText(
-                "Generado por PresupuestoCR — Página $pageNumber",
+                "Generado por SaldoX — Página $pageNumber",
                 40f,
                 825f,
                 footerPaint
             )
         }
 
-        canvas.drawText("PRESUPUESTO CR — REPORTE FINANCIERO", 40f, y, titlePaint)
+        canvas.drawText("SALDOX — REPORTE FINANCIERO", 40f, y, titlePaint)
         y += 16f
         val rangeLabel = if (startTime != null && endTime != null) {
             "Periodo: ${DateUtils.formatDate(startTime)} al ${DateUtils.formatDate(endTime)}"
@@ -214,7 +214,7 @@ class ExportPdfReportUseCase(
         pdfDocument.finishPage(currentPage)
 
         val reportsDir = File(context.getExternalFilesDir(null), "reports").apply { mkdirs() }
-        val file = File(reportsDir, "Reporte_PresupuestoCR_${System.currentTimeMillis()}.pdf")
+        val file = File(reportsDir, "Reporte_SaldoX_${System.currentTimeMillis()}.pdf")
         FileOutputStream(file).use { out ->
             pdfDocument.writeTo(out)
         }

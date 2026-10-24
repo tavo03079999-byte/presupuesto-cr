@@ -128,8 +128,8 @@ fun ReportsScreen(
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                     type = exported.mimeType
                     putExtra(Intent.EXTRA_STREAM, uri)
-                    putExtra(Intent.EXTRA_SUBJECT, "Reporte Financiero PresupuestoCR")
-                    putExtra(Intent.EXTRA_TEXT, "Adjunto datos exportados de PresupuestoCR.")
+                    putExtra(Intent.EXTRA_SUBJECT, "Reporte Financiero SaldoX")
+                    putExtra(Intent.EXTRA_TEXT, "Adjunto datos exportados de SaldoX.")
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
                 context.startActivity(Intent.createChooser(shareIntent, "Compartir archivo exportado"))

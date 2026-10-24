@@ -60,7 +60,7 @@ class GoogleDriveBackupUseCase(
                 NetHttpTransport(),
                 GsonFactory.getDefaultInstance(),
                 credential
-            ).setApplicationName("PresupuestoCR").build()
+            ).setApplicationName("SaldoX").build()
 
             val dbFile = context.getDatabasePath(DB_FILE_NAME)
             if (!dbFile.exists()) {
@@ -69,8 +69,8 @@ class GoogleDriveBackupUseCase(
 
             val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
             val metadata = DriveFile().apply {
-                name = "Backup_PresupuestoCR_${timeStamp}.db"
-                description = "Respaldo seguro cifrado de PresupuestoCR para $TARGET_ACCOUNT_EMAIL"
+                name = "Backup_SaldoX_${timeStamp}.db"
+                description = "Respaldo seguro cifrado de SaldoX para $TARGET_ACCOUNT_EMAIL"
             }
 
             val mediaContent = FileContent("application/x-sqlite3", dbFile)
@@ -97,7 +97,7 @@ class GoogleDriveBackupUseCase(
                 NetHttpTransport(),
                 GsonFactory.getDefaultInstance(),
                 credential
-            ).setApplicationName("PresupuestoCR").build()
+            ).setApplicationName("SaldoX").build()
 
             val destinationDb = context.getDatabasePath(DB_FILE_NAME)
             FileOutputStream(destinationDb).use { output ->

@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Presupuesto Inteligente CR</string>
+    <string name="app_name">SaldoX</string>
     <string name="currency_symbol">₡</string>
     <string name="currency_code">CRC</string>
     <string name="default_user_email">tavo03079999@gmail.com</string>

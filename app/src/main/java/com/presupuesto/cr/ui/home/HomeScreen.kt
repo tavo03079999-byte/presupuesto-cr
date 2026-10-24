@@ -2,7 +2,9 @@ package com.presupuesto.cr.ui.home
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,7 +31,6 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -61,10 +62,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.presupuesto.cr.R
 import com.presupuesto.cr.data.local.entity.CategoryEntity
 import com.presupuesto.cr.data.local.entity.CategoryType
 import com.presupuesto.cr.data.local.entity.TransactionEntity
@@ -232,29 +239,41 @@ private fun FinoraTopHeader(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.weight(1f)
         ) {
-            Box(
+            Image(
+                painter = painterResource(id = R.drawable.saldox_mark),
+                contentDescription = "Logo SaldoX",
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(42.dp)
-                    .background(
-                        brush = Brush.linearGradient(listOf(ThemeBlue, CyanNeon, EmeraldNeon)),
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .border(
+                        width = 1.dp,
+                        color = CyanNeon.copy(alpha = 0.45f),
                         shape = RoundedCornerShape(12.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.TrendingUp,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+                    )
+            )
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "PresupuestoCR",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    text = buildAnnotatedString {
+                        withStyle(
+                            style = SpanStyle(
+                                color = MaterialTheme.colorScheme.onBackground,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        ) {
+                            append("Saldo")
+                        }
+                        withStyle(
+                            style = SpanStyle(
+                                color = Color(0xFF00E5B8),
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        ) {
+                            append("X")
+                        }
+                    },
+                    fontSize = 21.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

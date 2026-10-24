@@ -46,7 +46,7 @@ class PaymentReminderWorker(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Alertas y Recordatorios PresupuestoCR",
+                "Alertas y Recordatorios SaldoX",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Alertas de presupuestos superados y recordatorios de pagos"
