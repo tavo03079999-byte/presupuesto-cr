@@ -59,6 +59,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,8 +89,8 @@ import com.presupuesto.cr.util.DateUtils
 fun TransactionsScreen(
     viewModel: TransactionsViewModel
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
-    var showAddDialog by remember { mutableStateOf(false) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    var showAddDialog by rememberSaveable { mutableStateOf(false) }
     var showAdvancedFilters by remember { mutableStateOf(false) }
     var transactionToEdit by remember { mutableStateOf<TransactionEntity?>(null) }
     var transactionToDelete by remember { mutableStateOf<TransactionEntity?>(null) }

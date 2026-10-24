@@ -62,6 +62,16 @@ interface TransactionDao {
     """)
     fun getExpenseSummaryByCategory(startTime: Long, endTime: Long): Flow<List<CategoryTotal>>
 
+    @Query("""
+        SELECT c.id AS categoryId, c.name AS categoryName, c.colorHex AS colorHex, SUM(t.amount) AS totalAmount
+        FROM transactions t
+        INNER JOIN categories c ON t.categoryId = c.id
+        WHERE t.type = :type AND t.timestamp BETWEEN :startTime AND :endTime
+        GROUP BY c.id, c.name, c.colorHex
+        ORDER BY totalAmount DESC
+    """)
+    fun getSummaryByCategoryAndType(type: CategoryType, startTime: Long, endTime: Long): Flow<List<CategoryTotal>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: TransactionEntity): Long
 

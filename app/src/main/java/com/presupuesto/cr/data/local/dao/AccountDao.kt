@@ -50,6 +50,18 @@ interface AccountDao {
     @Query("UPDATE accounts SET currentBalance = currentBalance + :amountDelta, updated_at = :updatedAt WHERE id = :accountId")
     suspend fun updateBalance(accountId: Long, amountDelta: Double, updatedAt: Long)
 
+    @Query("""
+        UPDATE accounts
+        SET currentBalance = COALESCE(
+            (SELECT SUM(CASE WHEN t.type = 'INCOME' THEN t.amount ELSE -t.amount END)
+             FROM transactions t
+             WHERE t.accountId = accounts.id),
+            0.0
+        ),
+        updated_at = :updatedAt
+    """)
+    suspend fun recalculateAllAccountBalances(updatedAt: Long)
+
     @Delete
     suspend fun deleteAccount(account: AccountEntity)
 

@@ -19,6 +19,7 @@ interface FinanceRepository {
     fun getSafeToSpendBalanceFlow(): Flow<Double?>
     suspend fun getSafeToSpendBalance(): Double
     suspend fun updateAccountBalance(accountId: Long, amountDelta: Double)
+    suspend fun syncAccountBalancesWithTransactions()
     suspend fun insertAccount(account: AccountEntity): Long
 
     // Categorías Personalizadas
@@ -37,6 +38,7 @@ interface FinanceRepository {
     suspend fun getTotalByTypeBetweenSync(type: CategoryType, startTime: Long, endTime: Long): Double
     suspend fun getCategorySpentBetweenSync(categoryId: Long, startTime: Long, endTime: Long): Double
     fun getExpenseSummaryByCategory(startTime: Long, endTime: Long): Flow<List<CategoryTotal>>
+    fun getSummaryByCategoryAndType(type: CategoryType, startTime: Long, endTime: Long): Flow<List<CategoryTotal>>
     suspend fun insertTransaction(transaction: TransactionEntity): Long
     suspend fun updateTransaction(oldTransaction: TransactionEntity, newTransaction: TransactionEntity)
     suspend fun deleteTransaction(transaction: TransactionEntity)

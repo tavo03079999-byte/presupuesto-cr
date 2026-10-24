@@ -17,6 +17,7 @@ import java.io.BufferedWriter
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStreamWriter
+import java.util.Locale
 
 class ExportPdfReportUseCase(
     private val context: Context,
@@ -57,7 +58,7 @@ class ExportPdfReportUseCase(
                         CategoryType.EXPENSE -> "Gasto"
                         CategoryType.SPECIAL_ALLOCATION -> "Ahorro"
                     }
-                    val monto = String.format(java.util.Locale.US, "%.2f", tx.amount)
+                    val monto = String.format(Locale.US, "%.2f", tx.amount)
                     writer.write("\"$fecha\",\"$descripcion\",\"$categoria\",\"$tipo\",$monto")
                     writer.newLine()
                 }
@@ -82,11 +83,6 @@ class ExportPdfReportUseCase(
         val totalExpense = transactions.filter { it.type == CategoryType.EXPENSE }.sumOf { it.amount }
         val netBalance = totalIncome - totalExpense
         val now = System.currentTimeMillis()
-
-        val pdfDocument = PdfDocument()
-        val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
-        val page = pdfDocument.startPage(pageInfo)
-        val canvas: Canvas = page.canvas
 
         val titlePaint = Paint().apply {
             color = Color.parseColor("#0D162C")
@@ -125,14 +121,43 @@ class ExportPdfReportUseCase(
             strokeWidth = 1f
         }
 
+        val footerPaint = Paint().apply {
+            color = Color.GRAY
+            textSize = 8f
+        }
+
+        val pdfDocument = PdfDocument()
+        var pageNumber = 1
+        var currentPage = pdfDocument.startPage(PdfDocument.PageInfo.Builder(595, 842, pageNumber).create())
+        var canvas: Canvas = currentPage.canvas
         var y = 40f
+
+        fun drawTableHeader() {
+            canvas.drawText("Fecha", 42f, y, boldTextPaint)
+            canvas.drawText("Descripción", 105f, y, boldTextPaint)
+            canvas.drawText("Categoría", 285f, y, boldTextPaint)
+            canvas.drawText("Tipo", 405f, y, boldTextPaint)
+            canvas.drawText("Monto", 475f, y, boldTextPaint)
+            y += 8f
+            canvas.drawLine(40f, y, 555f, y, linePaint)
+            y += 14f
+        }
+
+        fun drawFooter() {
+            canvas.drawText(
+                "Generado por PresupuestoCR — Página $pageNumber",
+                40f,
+                825f,
+                footerPaint
+            )
+        }
 
         canvas.drawText("PRESUPUESTO CR — REPORTE FINANCIERO", 40f, y, titlePaint)
         y += 16f
         val rangeLabel = if (startTime != null && endTime != null) {
             "Periodo: ${DateUtils.formatDate(startTime)} al ${DateUtils.formatDate(endTime)}"
         } else {
-            "Periodo: Historial general"
+            "Periodo: Historial completo"
         }
         canvas.drawText("$rangeLabel  |  Emitido: ${DateUtils.formatFriendly(now)}", 40f, y, subtitlePaint)
         y += 18f
@@ -140,7 +165,7 @@ class ExportPdfReportUseCase(
         y += 20f
 
         canvas.drawRoundRect(40f, y, 555f, y + 68f, 8f, 8f, headerBoxPaint)
-        canvas.drawText("RESUMEN DEL PERIODO SELECCIONADO", 55f, y + 20f, boldTextPaint)
+        canvas.drawText("RESUMEN DEL PERIODO SELECCIONADO (${transactions.size} movimientos)", 55f, y + 20f, boldTextPaint)
         canvas.drawText("Ingresos: ${CurrencyFormatter.formatCrc(totalIncome)}", 55f, y + 40f, textPaint)
         canvas.drawText("Gastos: ${CurrencyFormatter.formatCrc(totalExpense)}", 225f, y + 40f, textPaint)
         canvas.drawText("Balance Neto: ${CurrencyFormatter.formatCrc(netBalance)}", 385f, y + 40f, boldTextPaint)
@@ -149,41 +174,44 @@ class ExportPdfReportUseCase(
 
         canvas.drawText("DETALLE DE TRANSACCIONES", 40f, y, sectionPaint)
         y += 18f
-        canvas.drawText("Fecha", 42f, y, boldTextPaint)
-        canvas.drawText("Descripción", 105f, y, boldTextPaint)
-        canvas.drawText("Categoría", 285f, y, boldTextPaint)
-        canvas.drawText("Tipo", 405f, y, boldTextPaint)
-        canvas.drawText("Monto", 475f, y, boldTextPaint)
-        y += 8f
-        canvas.drawLine(40f, y, 555f, y, linePaint)
-        y += 14f
+        drawTableHeader()
 
-        for (tx in transactions.take(36)) {
-            if (y > 805f) break
-            val catName = categoriesMap[tx.categoryId]?.name ?: "General"
-            val noteTrunc = if (tx.note.length > 28) tx.note.substring(0, 26) + ".." else tx.note.ifBlank { catName }
-            val catTrunc = if (catName.length > 18) catName.substring(0, 16) + ".." else catName
-            val typeStr = when (tx.type) {
-                CategoryType.INCOME -> "Ingreso"
-                CategoryType.EXPENSE -> "Gasto"
-                CategoryType.SPECIAL_ALLOCATION -> "Ahorro"
+        if (transactions.isEmpty()) {
+            canvas.drawText("No hay transacciones registradas en este rango de fechas.", 42f, y, subtitlePaint)
+        } else {
+            for (tx in transactions) {
+                if (y > 795f) {
+                    drawFooter()
+                    pdfDocument.finishPage(currentPage)
+                    pageNumber += 1
+                    currentPage = pdfDocument.startPage(PdfDocument.PageInfo.Builder(595, 842, pageNumber).create())
+                    canvas = currentPage.canvas
+                    y = 45f
+                    canvas.drawText("DETALLE DE TRANSACCIONES (continuación)", 40f, y, sectionPaint)
+                    y += 18f
+                    drawTableHeader()
+                }
+
+                val catName = categoriesMap[tx.categoryId]?.name ?: "General"
+                val noteTrunc = if (tx.note.length > 28) tx.note.substring(0, 26) + ".." else tx.note.ifBlank { catName }
+                val catTrunc = if (catName.length > 18) catName.substring(0, 16) + ".." else catName
+                val typeStr = when (tx.type) {
+                    CategoryType.INCOME -> "Ingreso"
+                    CategoryType.EXPENSE -> "Gasto"
+                    CategoryType.SPECIAL_ALLOCATION -> "Ahorro"
+                }
+
+                canvas.drawText(DateUtils.formatDate(tx.timestamp), 42f, y, textPaint)
+                canvas.drawText(noteTrunc, 105f, y, textPaint)
+                canvas.drawText(catTrunc, 285f, y, textPaint)
+                canvas.drawText(typeStr, 405f, y, textPaint)
+                canvas.drawText(CurrencyFormatter.formatCrc(tx.amount), 475f, y, textPaint)
+                y += 14f
             }
-
-            canvas.drawText(DateUtils.formatDate(tx.timestamp), 42f, y, textPaint)
-            canvas.drawText(noteTrunc, 105f, y, textPaint)
-            canvas.drawText(catTrunc, 285f, y, textPaint)
-            canvas.drawText(typeStr, 405f, y, textPaint)
-            canvas.drawText(CurrencyFormatter.formatCrc(tx.amount), 475f, y, textPaint)
-            y += 14f
         }
 
-        val footerPaint = Paint().apply {
-            color = Color.GRAY
-            textSize = 8f
-        }
-        canvas.drawText("Generado por PresupuestoCR — tavo03079999@gmail.com", 40f, 825f, footerPaint)
-
-        pdfDocument.finishPage(page)
+        drawFooter()
+        pdfDocument.finishPage(currentPage)
 
         val reportsDir = File(context.getExternalFilesDir(null), "reports").apply { mkdirs() }
         val file = File(reportsDir, "Reporte_PresupuestoCR_${System.currentTimeMillis()}.pdf")

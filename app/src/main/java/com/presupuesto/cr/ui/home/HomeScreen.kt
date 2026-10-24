@@ -47,6 +47,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -97,10 +100,10 @@ fun HomeScreen(
     val monthIncome by viewModel.currentMonthIncome.collectAsState()
     val monthExpense by viewModel.currentMonthExpense.collectAsState()
     val monthCategories by viewModel.monthCategoriesSummary.collectAsState()
+    val monthIncomeCategories by viewModel.monthIncomeCategoriesSummary.collectAsState()
     val budgetProgressList by viewModel.budgetProgressList.collectAsState()
     val dailyBars by viewModel.dailyBarsThisMonth.collectAsState()
-
-    val totalBalance = accounts.sumOf { it.currentBalance }
+    val totalBalance by viewModel.netBalance.collectAsState()
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -164,12 +167,14 @@ fun HomeScreen(
                 )
             }
 
-            if (monthCategories.isNotEmpty()) {
+            if (monthCategories.isNotEmpty() || monthIncomeCategories.isNotEmpty()) {
                 item {
                     FinoraDonutSummaryCard(
-                        categoriesSummary = monthCategories,
+                        expenseCategoriesSummary = monthCategories,
+                        incomeCategoriesSummary = monthIncomeCategories,
                         totalExpense = monthExpense,
-                        onCategoryClick = { catId -> onNavigateToTransactions(CategoryType.EXPENSE, catId) },
+                        totalIncome = monthIncome,
+                        onCategoryClick = { chosenType, catId -> onNavigateToTransactions(chosenType, catId) },
                         onHeaderClick = onNavigateToReports,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
@@ -614,11 +619,20 @@ private fun FinoraMonthlyBarCard(
                 verticalAlignment = Alignment.Bottom
             ) {
                 dailyBars.forEachIndexed { index, (day, amount) ->
-                    val fraction = (amount / maxVal).toFloat().coerceIn(0.15f, 1f)
-                    val brush = if (index % 2 == 0) {
-                        Brush.verticalGradient(listOf(CyanNeon, ThemeBlue))
+                    val fraction = if (amount > 0.0) {
+                        (amount / maxVal).toFloat().coerceIn(0.18f, 1f)
                     } else {
-                        Brush.verticalGradient(listOf(EmeraldNeon, IncomeGreen))
+                        0.06f
+                    }
+                    val brush = when {
+                        amount <= 0.0 -> Brush.verticalGradient(
+                            listOf(
+                                MaterialTheme.colorScheme.surfaceVariant,
+                                MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        )
+                        index % 2 == 0 -> Brush.verticalGradient(listOf(CyanNeon, ThemeBlue))
+                        else -> Brush.verticalGradient(listOf(EmeraldNeon, IncomeGreen))
                     }
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -657,12 +671,27 @@ private fun FinoraMonthlyBarCard(
 
 @Composable
 private fun FinoraDonutSummaryCard(
-    categoriesSummary: List<CategoryExpenseSummary>,
+    expenseCategoriesSummary: List<CategoryExpenseSummary>,
+    incomeCategoriesSummary: List<CategoryExpenseSummary>,
     totalExpense: Double,
-    onCategoryClick: (Long) -> Unit,
+    totalIncome: Double,
+    onCategoryClick: (CategoryType, Long) -> Unit,
     onHeaderClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var selectedType by remember {
+        mutableStateOf(
+            if (expenseCategoriesSummary.isNotEmpty() || incomeCategoriesSummary.isEmpty()) {
+                CategoryType.EXPENSE
+            } else {
+                CategoryType.INCOME
+            }
+        )
+    }
+    val isExpense = selectedType == CategoryType.EXPENSE
+    val activeList = if (isExpense) expenseCategoriesSummary else incomeCategoriesSummary
+    val activeTotal = if (isExpense) totalExpense else totalIncome
+
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
@@ -679,7 +708,7 @@ private fun FinoraDonutSummaryCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Categorías de gasto",
+                    text = if (isExpense) "Categorías de gasto" else "Categorías de ingreso",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -696,86 +725,154 @@ private fun FinoraDonutSummaryCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(14.dp)
+                    )
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Box(
-                    modifier = Modifier.size(132.dp),
-                    contentAlignment = Alignment.Center
+                Surface(
+                    onClick = { selectedType = CategoryType.EXPENSE },
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (isExpense) ExpenseRed.copy(alpha = 0.22f) else Color.Transparent,
+                    border = if (isExpense) BorderStroke(1.dp, ExpenseRed) else null,
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Canvas(modifier = Modifier.size(116.dp)) {
-                        var startAngle = -90f
-                        val stroke = 20.dp.toPx()
-                        categoriesSummary.forEach { item ->
-                            val sweep = (item.percentageOfTotal * 360.0 / 100.0).toFloat()
-                            drawArc(
-                                color = CategoryIconMapper.parseColor(item.colorHex),
-                                startAngle = startAngle,
-                                sweepAngle = sweep,
-                                useCenter = false,
-                                style = Stroke(width = stroke, cap = StrokeCap.Butt)
-                            )
-                            startAngle += sweep
-                        }
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier.padding(vertical = 7.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Text(
-                            text = CurrencyFormatter.formatCrc(totalExpense),
-                            fontSize = 11.sp,
+                            text = "Gastos",
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "Total gastos",
-                            fontSize = 9.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (isExpense) ExpenseRed else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                Surface(
+                    onClick = { selectedType = CategoryType.INCOME },
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (!isExpense) IncomeGreen.copy(alpha = 0.22f) else Color.Transparent,
+                    border = if (!isExpense) BorderStroke(1.dp, IncomeGreen) else null,
+                    modifier = Modifier.weight(1f)
                 ) {
-                    categoriesSummary.take(6).forEach { item ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onCategoryClick(item.categoryId) },
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(9.dp)
-                                        .background(CategoryIconMapper.parseColor(item.colorHex), CircleShape)
+                    Box(
+                        modifier = Modifier.padding(vertical = 7.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Ingresos",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (!isExpense) IncomeGreen else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            if (activeList.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 18.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (isExpense) "Sin gastos este mes." else "Sin ingresos este mes.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier.size(132.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Canvas(modifier = Modifier.size(116.dp)) {
+                            var startAngle = -90f
+                            val stroke = 20.dp.toPx()
+                            activeList.forEach { item ->
+                                val sweep = (item.percentageOfTotal * 360.0 / 100.0).toFloat()
+                                drawArc(
+                                    color = CategoryIconMapper.parseColor(item.colorHex),
+                                    startAngle = startAngle,
+                                    sweepAngle = sweep,
+                                    useCenter = false,
+                                    style = Stroke(width = stroke, cap = StrokeCap.Butt)
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
+                                startAngle += sweep
+                            }
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = CurrencyFormatter.formatCrc(activeTotal),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = if (isExpense) "Total gastos" else "Total ingresos",
+                                fontSize = 9.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        activeList.take(6).forEach { item ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onCategoryClick(selectedType, item.categoryId) },
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(9.dp)
+                                            .background(CategoryIconMapper.parseColor(item.colorHex), CircleShape)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = item.categoryName,
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                                 Text(
-                                    text = item.categoryName,
+                                    text = "${String.format("%.0f", item.percentageOfTotal)}%",
                                     fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
-                            Text(
-                                text = "${String.format("%.0f", item.percentageOfTotal)}%",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
                         }
                     }
                 }

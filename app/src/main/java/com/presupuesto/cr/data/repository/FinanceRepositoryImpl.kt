@@ -49,6 +49,14 @@ class FinanceRepositoryImpl(
         }
     }
 
+    override suspend fun syncAccountBalancesWithTransactions() {
+        try {
+            accountDao.recalculateAllAccountBalances(System.currentTimeMillis())
+        } catch (e: Exception) {
+            // Manejo seguro de error de base de datos
+        }
+    }
+
     override suspend fun insertAccount(account: AccountEntity): Long = try {
         accountDao.insert(account)
     } catch (e: Exception) {
@@ -125,14 +133,17 @@ class FinanceRepositoryImpl(
     override fun getExpenseSummaryByCategory(startTime: Long, endTime: Long): Flow<List<CategoryTotal>> =
         transactionDao.getExpenseSummaryByCategory(startTime, endTime)
 
+    override fun getSummaryByCategoryAndType(
+        type: CategoryType,
+        startTime: Long,
+        endTime: Long
+    ): Flow<List<CategoryTotal>> =
+        transactionDao.getSummaryByCategoryAndType(type, startTime, endTime)
+
     override suspend fun insertTransaction(transaction: TransactionEntity): Long = try {
         val now = System.currentTimeMillis()
         val id = transactionDao.insert(transaction)
-        val balanceDelta = when (transaction.type) {
-            CategoryType.INCOME -> transaction.amount
-            CategoryType.EXPENSE, CategoryType.SPECIAL_ALLOCATION -> -transaction.amount
-        }
-        accountDao.updateBalance(transaction.accountId, balanceDelta, now)
+        accountDao.recalculateAllAccountBalances(now)
         id
     } catch (e: Exception) {
         -1L
@@ -144,19 +155,8 @@ class FinanceRepositoryImpl(
     ) {
         try {
             val now = System.currentTimeMillis()
-            val revertDelta = when (oldTransaction.type) {
-                CategoryType.INCOME -> -oldTransaction.amount
-                CategoryType.EXPENSE, CategoryType.SPECIAL_ALLOCATION -> oldTransaction.amount
-            }
-            accountDao.updateBalance(oldTransaction.accountId, revertDelta, now)
-
             transactionDao.update(newTransaction.copy(updatedAt = now))
-
-            val applyDelta = when (newTransaction.type) {
-                CategoryType.INCOME -> newTransaction.amount
-                CategoryType.EXPENSE, CategoryType.SPECIAL_ALLOCATION -> -newTransaction.amount
-            }
-            accountDao.updateBalance(newTransaction.accountId, applyDelta, now)
+            accountDao.recalculateAllAccountBalances(now)
         } catch (e: Exception) {
             // Manejo seguro de error de base de datos
         }
@@ -166,11 +166,7 @@ class FinanceRepositoryImpl(
         try {
             val now = System.currentTimeMillis()
             transactionDao.delete(transaction)
-            val revertDelta = when (transaction.type) {
-                CategoryType.INCOME -> -transaction.amount
-                CategoryType.EXPENSE, CategoryType.SPECIAL_ALLOCATION -> transaction.amount
-            }
-            accountDao.updateBalance(transaction.accountId, revertDelta, now)
+            accountDao.recalculateAllAccountBalances(now)
         } catch (e: Exception) {
             // Manejo seguro de error de base de datos
         }

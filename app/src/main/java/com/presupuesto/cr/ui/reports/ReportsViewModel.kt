@@ -24,6 +24,16 @@ enum class TimeFilter(val label: String) {
     CUSTOM("Personalizado")
 }
 
+enum class ExportRangePreset(val label: String) {
+    THIS_MONTH("Este mes"),
+    CUSTOM_DATES("Fechas libres"),
+    DAYS_AROUND("Días antes/después"),
+    LAST_7_DAYS("Últimos 7 días"),
+    LAST_15_DAYS("Últimos 15 días"),
+    LAST_30_DAYS("Últimos 30 días"),
+    ALL_TIME("Todo")
+}
+
 enum class PeriodComparisonMode(val label: String) {
     MONTH_VS_PREV("Mes vs. Anterior"),
     WEEK_VS_PREV("Semana vs. Anterior"),
@@ -60,6 +70,24 @@ class ReportsViewModel(
     private val _customEndDate = MutableStateFlow(initialMonthBounds.second)
     val customEndDate: StateFlow<Long> = _customEndDate.asStateFlow()
 
+    private val _exportPreset = MutableStateFlow(ExportRangePreset.THIS_MONTH)
+    val exportPreset: StateFlow<ExportRangePreset> = _exportPreset.asStateFlow()
+
+    private val _exportStartDate = MutableStateFlow(initialMonthBounds.first)
+    val exportStartDate: StateFlow<Long> = _exportStartDate.asStateFlow()
+
+    private val _exportEndDate = MutableStateFlow(initialMonthBounds.second)
+    val exportEndDate: StateFlow<Long> = _exportEndDate.asStateFlow()
+
+    private val _exportBaseDate = MutableStateFlow(DateUtils.getStartOfDay(System.currentTimeMillis()))
+    val exportBaseDate: StateFlow<Long> = _exportBaseDate.asStateFlow()
+
+    private val _exportDaysBefore = MutableStateFlow(7)
+    val exportDaysBefore: StateFlow<Int> = _exportDaysBefore.asStateFlow()
+
+    private val _exportDaysAfter = MutableStateFlow(0)
+    val exportDaysAfter: StateFlow<Int> = _exportDaysAfter.asStateFlow()
+
     private val _comparisonMode = MutableStateFlow(PeriodComparisonMode.MONTH_VS_PREV)
     val comparisonMode: StateFlow<PeriodComparisonMode> = _comparisonMode.asStateFlow()
 
@@ -85,6 +113,9 @@ class ReportsViewModel(
 
     private val _categoriesSummary = MutableStateFlow<List<CategoryExpenseSummary>>(emptyList())
     val categoriesSummary: StateFlow<List<CategoryExpenseSummary>> = _categoriesSummary.asStateFlow()
+
+    private val _incomeCategoriesSummary = MutableStateFlow<List<CategoryExpenseSummary>>(emptyList())
+    val incomeCategoriesSummary: StateFlow<List<CategoryExpenseSummary>> = _incomeCategoriesSummary.asStateFlow()
 
     private val _totalIncome = MutableStateFlow(0.0)
     val totalIncome: StateFlow<Double> = _totalIncome.asStateFlow()
@@ -124,6 +155,82 @@ class ReportsViewModel(
         loadData()
     }
 
+    fun selectExportPreset(preset: ExportRangePreset) {
+        _exportPreset.value = preset
+        val now = System.currentTimeMillis()
+        when (preset) {
+            ExportRangePreset.THIS_MONTH -> {
+                val (s, e) = DateUtils.getCurrentMonthBounds()
+                _exportStartDate.value = s
+                _exportEndDate.value = e
+            }
+            ExportRangePreset.LAST_7_DAYS -> {
+                _exportStartDate.value = DateUtils.addDaysToStartOfDay(now, -6)
+                _exportEndDate.value = DateUtils.getEndOfDay(now)
+            }
+            ExportRangePreset.LAST_15_DAYS -> {
+                _exportStartDate.value = DateUtils.addDaysToStartOfDay(now, -14)
+                _exportEndDate.value = DateUtils.getEndOfDay(now)
+            }
+            ExportRangePreset.LAST_30_DAYS -> {
+                _exportStartDate.value = DateUtils.addDaysToStartOfDay(now, -29)
+                _exportEndDate.value = DateUtils.getEndOfDay(now)
+            }
+            ExportRangePreset.DAYS_AROUND -> {
+                val base = _exportBaseDate.value
+                _exportStartDate.value = DateUtils.addDaysToStartOfDay(base, -_exportDaysBefore.value)
+                _exportEndDate.value = DateUtils.addDaysToEndOfDay(base, _exportDaysAfter.value)
+            }
+            ExportRangePreset.CUSTOM_DATES -> {
+                // Mantiene las fechas seleccionadas listas para editar Desde / Hasta
+            }
+            ExportRangePreset.ALL_TIME -> {
+                // Exportará todo el historial sin restricción de fechas
+            }
+        }
+    }
+
+    fun setExportStartDate(startMillis: Long) {
+        val cleanStart = DateUtils.getStartOfDay(startMillis)
+        _exportPreset.value = ExportRangePreset.CUSTOM_DATES
+        _exportStartDate.value = cleanStart
+        if (_exportEndDate.value < cleanStart) {
+            _exportEndDate.value = DateUtils.getEndOfDay(startMillis)
+        }
+    }
+
+    fun setExportEndDate(endMillis: Long) {
+        val cleanEnd = DateUtils.getEndOfDay(endMillis)
+        _exportPreset.value = ExportRangePreset.CUSTOM_DATES
+        _exportEndDate.value = cleanEnd
+        if (_exportStartDate.value > cleanEnd) {
+            _exportStartDate.value = DateUtils.getStartOfDay(endMillis)
+        }
+    }
+
+    fun setExportDaysAround(
+        baseDateMillis: Long = _exportBaseDate.value,
+        daysBefore: Int = _exportDaysBefore.value,
+        daysAfter: Int = _exportDaysAfter.value
+    ) {
+        val safeBefore = daysBefore.coerceIn(0, 3650)
+        val safeAfter = daysAfter.coerceIn(0, 3650)
+        val cleanBase = DateUtils.getStartOfDay(baseDateMillis)
+
+        _exportPreset.value = ExportRangePreset.DAYS_AROUND
+        _exportBaseDate.value = cleanBase
+        _exportDaysBefore.value = safeBefore
+        _exportDaysAfter.value = safeAfter
+        _exportStartDate.value = DateUtils.addDaysToStartOfDay(cleanBase, -safeBefore)
+        _exportEndDate.value = DateUtils.addDaysToEndOfDay(cleanBase, safeAfter)
+    }
+
+    fun applyExportRangeToCharts() {
+        if (_exportPreset.value != ExportRangePreset.ALL_TIME) {
+            setCustomDateRange(_exportStartDate.value, _exportEndDate.value)
+        }
+    }
+
     fun setComparisonMode(mode: PeriodComparisonMode) {
         _comparisonMode.value = mode
         loadComparison()
@@ -161,11 +268,25 @@ class ReportsViewModel(
             _totalExpense.value = repository.getTotalByTypeBetweenSync(CategoryType.EXPENSE, startTime, endTime)
             _totalSavings.value = repository.getTotalByTypeBetweenSync(CategoryType.SPECIAL_ALLOCATION, startTime, endTime)
 
-            val expenseSummary = repository.getExpenseSummaryByCategory(startTime, endTime).first()
+            val expenseSummary = repository.getSummaryByCategoryAndType(CategoryType.EXPENSE, startTime, endTime).first()
             val totalSpent = expenseSummary.sumOf { it.totalAmount }
 
             _categoriesSummary.value = expenseSummary.map {
                 val percentage = if (totalSpent > 0) (it.totalAmount / totalSpent) * 100.0 else 0.0
+                CategoryExpenseSummary(
+                    categoryId = it.categoryId,
+                    categoryName = it.categoryName,
+                    colorHex = it.colorHex,
+                    spentAmount = it.totalAmount,
+                    percentageOfTotal = percentage
+                )
+            }
+
+            val incomeSummary = repository.getSummaryByCategoryAndType(CategoryType.INCOME, startTime, endTime).first()
+            val totalEarned = incomeSummary.sumOf { it.totalAmount }
+
+            _incomeCategoriesSummary.value = incomeSummary.map {
+                val percentage = if (totalEarned > 0) (it.totalAmount / totalEarned) * 100.0 else 0.0
                 CategoryExpenseSummary(
                     categoryId = it.categoryId,
                     categoryName = it.categoryName,
@@ -237,7 +358,11 @@ class ReportsViewModel(
         _isExporting.value = true
         viewModelScope.launch {
             try {
-                val (start, end) = getTimeBounds(_selectedTimeFilter.value)
+                val (start, end) = if (_exportPreset.value == ExportRangePreset.ALL_TIME) {
+                    null to null
+                } else {
+                    _exportStartDate.value to _exportEndDate.value
+                }
                 val file = exportPdfReportUseCase.exportPdf(start, end)
                 _exportedShareFile.value = ExportedShareFile(file, "application/pdf")
             } catch (e: Exception) {
@@ -252,7 +377,11 @@ class ReportsViewModel(
         _isExporting.value = true
         viewModelScope.launch {
             try {
-                val (start, end) = getTimeBounds(_selectedTimeFilter.value)
+                val (start, end) = if (_exportPreset.value == ExportRangePreset.ALL_TIME) {
+                    null to null
+                } else {
+                    _exportStartDate.value to _exportEndDate.value
+                }
                 val file = exportPdfReportUseCase.exportCsv(start, end)
                 _exportedShareFile.value = ExportedShareFile(file, "text/csv")
             } catch (e: Exception) {

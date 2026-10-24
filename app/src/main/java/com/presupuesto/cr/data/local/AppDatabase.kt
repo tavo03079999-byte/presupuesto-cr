@@ -18,19 +18,14 @@ import com.presupuesto.cr.data.local.entity.AccountEntity
 import com.presupuesto.cr.data.local.entity.AccountType
 import com.presupuesto.cr.data.local.entity.BcrPendingEntity
 import com.presupuesto.cr.data.local.entity.BudgetEntity
-import com.presupuesto.cr.data.local.entity.BudgetPeriod
 import com.presupuesto.cr.data.local.entity.CategoryEntity
-import com.presupuesto.cr.data.local.entity.CategoryType
-import com.presupuesto.cr.data.local.entity.RecurringFrequency
 import com.presupuesto.cr.data.local.entity.RecurringMovementEntity
 import com.presupuesto.cr.data.local.entity.TransactionEntity
-import com.presupuesto.cr.data.local.entity.TransactionSource
+import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import net.sqlcipher.database.SupportFactory
-import java.util.Calendar
-import java.util.UUID
 
 @Database(
     entities = [
@@ -41,7 +36,7 @@ import java.util.UUID
         RecurringMovementEntity::class,
         BcrPendingEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -95,6 +90,46 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val now = System.currentTimeMillis()
+                // Limpiar máscaras de demostración pre-cargadas anteriormente
+                db.execSQL("UPDATE accounts SET accountNumberMasked = '', isIncludedInSafeToSpend = 1 WHERE accountNumberMasked IN ('*4892', '*7110', '*9901')")
+                db.execSQL("UPDATE accounts SET isIncludedInSafeToSpend = 0 WHERE accountType = 'CREDIT_CARD_BCR'")
+
+                // Eliminar transacciones de ejemplo si aún existieran sin haber sido tocadas por el usuario
+                db.execSQL("""
+                    DELETE FROM transactions
+                    WHERE (note = 'Salario Quincenal BCR' AND amount = 650000.0 AND merchant = 'Planilla')
+                       OR (note = 'Cuota Vivienda / Alquiler' AND amount = 145000.0 AND merchant = 'Transferencia BCR')
+                       OR (note = 'Supermercado Automercado' AND amount = 54500.0 AND merchant = 'Automercado')
+                       OR (note = 'Gasolina Delta' AND amount = 24000.0 AND merchant = 'Estación Delta')
+                       OR (note = 'Suscripciones y Cine' AND amount = 18500.0 AND merchant = 'Entretenimiento')
+                       OR (note = 'Recibo Electricidad e Internet' AND amount = 38000.0 AND merchant = 'CNFL / Kölbi')
+                """.trimIndent())
+
+                // Eliminar recordatorios y presupuestos de demostración que el usuario no creó
+                db.execSQL("""
+                    DELETE FROM payment_reminders
+                    WHERE (name = 'Alquiler / Vivienda' AND amount = 145000.0)
+                       OR (name = 'Servicios Públicos (Luz y Agua)' AND amount = 38000.0)
+                       OR (name = 'Internet Fibra Óptica' AND amount = 26500.0)
+                """.trimIndent())
+
+                // Recalcular el saldo real de cada cuenta únicamente con los ingresos y gastos reales del usuario
+                db.execSQL("""
+                    UPDATE accounts
+                    SET currentBalance = COALESCE(
+                        (SELECT SUM(CASE WHEN t.type = 'INCOME' THEN t.amount ELSE -t.amount END)
+                         FROM transactions t
+                         WHERE t.accountId = accounts.id),
+                        0.0
+                    ),
+                    updated_at = $now
+                """.trimIndent())
+            }
+        }
+
         fun getInstance(context: Context, passphraseBytes: ByteArray = getDatabasePassphrase(context)): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val builder = Room.databaseBuilder(
@@ -103,7 +138,7 @@ abstract class AppDatabase : RoomDatabase() {
                     DB_NAME
                 )
                     .openHelperFactory(SupportFactory(passphraseBytes))
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .addCallback(DatabasePrepopulateCallback(context))
 
                 if (BuildConfig.DEBUG) {
@@ -143,13 +178,15 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         private suspend fun prepopulateData(db: AppDatabase) {
+            // Todas las cuentas inician en ₡0 sin saldos ni números ficticios
             val accounts = listOf(
                 AccountEntity(
                     id = 1,
                     name = "Efectivo",
                     accountType = AccountType.CASH,
-                    currentBalance = 65000.0,
+                    currentBalance = 0.0,
                     currency = "CRC",
+                    accountNumberMasked = "",
                     colorHex = "#4CAF50",
                     isIncludedInNetWorth = true,
                     isIncludedInSafeToSpend = true
@@ -158,9 +195,9 @@ abstract class AppDatabase : RoomDatabase() {
                     id = 2,
                     name = "Cuenta BCR Débito",
                     accountType = AccountType.BANK_BCR,
-                    currentBalance = 580000.0,
+                    currentBalance = 0.0,
                     currency = "CRC",
-                    accountNumberMasked = "*4892",
+                    accountNumberMasked = "",
                     colorHex = "#2196F3",
                     isIncludedInNetWorth = true,
                     isIncludedInSafeToSpend = true
@@ -169,164 +206,28 @@ abstract class AppDatabase : RoomDatabase() {
                     id = 3,
                     name = "Tarjeta BCR Crédito",
                     accountType = AccountType.CREDIT_CARD_BCR,
-                    currentBalance = -42000.0,
-                    creditLimit = 600000.0,
+                    currentBalance = 0.0,
+                    creditLimit = 0.0,
                     currency = "CRC",
-                    accountNumberMasked = "*7110",
+                    accountNumberMasked = "",
                     colorHex = "#F44336",
                     isIncludedInNetWorth = true,
                     isIncludedInSafeToSpend = false
                 ),
                 AccountEntity(
                     id = 4,
-                    name = "Ahorro Metas BCR",
+                    name = "Cuenta de Ahorros",
                     accountType = AccountType.SAVINGS,
-                    currentBalance = 240000.0,
+                    currentBalance = 0.0,
                     currency = "CRC",
-                    accountNumberMasked = "*9901",
+                    accountNumberMasked = "",
                     colorHex = "#FFC107",
                     isIncludedInNetWorth = true,
-                    isIncludedInSafeToSpend = false
+                    isIncludedInSafeToSpend = true
                 )
             )
             db.accountDao().insertAccounts(accounts)
             db.categoryDao().insertDefaultCategories(CategoryEntity.getDefaultCategories())
-
-            val now = System.currentTimeMillis()
-            val dayMs = 86400000L
-
-            val sampleTransactions = listOf(
-                TransactionEntity(
-                    id = 1,
-                    accountId = 2,
-                    categoryId = 1,
-                    amount = 650000.0,
-                    type = CategoryType.INCOME,
-                    timestamp = now - (dayMs * 6),
-                    note = "Salario Quincenal BCR",
-                    merchant = "Planilla",
-                    source = TransactionSource.MANUAL
-                ),
-                TransactionEntity(
-                    id = 2,
-                    accountId = 2,
-                    categoryId = 8,
-                    amount = 145000.0,
-                    type = CategoryType.EXPENSE,
-                    timestamp = now - (dayMs * 5),
-                    note = "Cuota Vivienda / Alquiler",
-                    merchant = "Transferencia BCR",
-                    source = TransactionSource.MANUAL
-                ),
-                TransactionEntity(
-                    id = 3,
-                    accountId = 2,
-                    categoryId = 3,
-                    amount = 54500.0,
-                    type = CategoryType.EXPENSE,
-                    timestamp = now - (dayMs * 3),
-                    note = "Supermercado Automercado",
-                    merchant = "Automercado",
-                    source = TransactionSource.MANUAL
-                ),
-                TransactionEntity(
-                    id = 4,
-                    accountId = 1,
-                    categoryId = 4,
-                    amount = 24000.0,
-                    type = CategoryType.EXPENSE,
-                    timestamp = now - (dayMs * 2),
-                    note = "Gasolina Delta",
-                    merchant = "Estación Delta",
-                    source = TransactionSource.MANUAL
-                ),
-                TransactionEntity(
-                    id = 5,
-                    accountId = 3,
-                    categoryId = 6,
-                    amount = 18500.0,
-                    type = CategoryType.EXPENSE,
-                    timestamp = now - dayMs,
-                    note = "Suscripciones y Cine",
-                    merchant = "Entretenimiento",
-                    source = TransactionSource.MANUAL
-                ),
-                TransactionEntity(
-                    id = 6,
-                    accountId = 2,
-                    categoryId = 7,
-                    amount = 38000.0,
-                    type = CategoryType.EXPENSE,
-                    timestamp = now,
-                    note = "Recibo Electricidad e Internet",
-                    merchant = "CNFL / Kölbi",
-                    source = TransactionSource.MANUAL
-                )
-            )
-            db.transactionDao().insertTransactions(sampleTransactions)
-
-            val defaultBudgets = listOf(
-                BudgetEntity(id = 1, categoryId = 3, period = BudgetPeriod.MONTHLY, limitAmount = 120000.0, alertThresholdPercent = 80.0),
-                BudgetEntity(id = 2, categoryId = 4, period = BudgetPeriod.MONTHLY, limitAmount = 60000.0, alertThresholdPercent = 80.0),
-                BudgetEntity(id = 3, categoryId = 6, period = BudgetPeriod.MONTHLY, limitAmount = 22000.0, alertThresholdPercent = 80.0),
-                BudgetEntity(id = 4, categoryId = 7, period = BudgetPeriod.MONTHLY, limitAmount = 55000.0, alertThresholdPercent = 80.0)
-            )
-            db.budgetDao().insertBudgets(defaultBudgets)
-
-            val next15th = Calendar.getInstance().apply {
-                if (get(Calendar.DAY_OF_MONTH) > 15) {
-                    add(Calendar.MONTH, 1)
-                }
-                set(Calendar.DAY_OF_MONTH, 15)
-                set(Calendar.HOUR_OF_DAY, 9)
-                set(Calendar.MINUTE, 0)
-            }.timeInMillis
-
-            val recurring = listOf(
-                RecurringMovementEntity(
-                    id = 1,
-                    name = "Alquiler / Vivienda",
-                    amount = 145000.0,
-                    type = CategoryType.EXPENSE,
-                    categoryId = 8,
-                    accountId = 2,
-                    frequency = RecurringFrequency.MONTHLY,
-                    dayOfMonth = 15,
-                    secondDayOfMonth = null,
-                    nextDueDate = next15th,
-                    isPaidForCurrentPeriod = false,
-                    reminderOffsetHours = 24
-                ),
-                RecurringMovementEntity(
-                    id = 2,
-                    name = "Servicios Públicos (Luz y Agua)",
-                    amount = 38000.0,
-                    type = CategoryType.EXPENSE,
-                    categoryId = 7,
-                    accountId = 2,
-                    frequency = RecurringFrequency.MONTHLY,
-                    dayOfMonth = 20,
-                    secondDayOfMonth = null,
-                    nextDueDate = now + (dayMs * 4),
-                    isPaidForCurrentPeriod = false,
-                    reminderOffsetHours = 24
-                ),
-                RecurringMovementEntity(
-                    id = 3,
-                    name = "Internet Fibra Óptica",
-                    amount = 26500.0,
-                    type = CategoryType.EXPENSE,
-                    categoryId = 7,
-                    accountId = 2,
-                    frequency = RecurringFrequency.MONTHLY,
-                    dayOfMonth = 25,
-                    secondDayOfMonth = null,
-                    nextDueDate = now + (dayMs * 7),
-                    isPaidForCurrentPeriod = false,
-                    reminderOffsetHours = 1
-                )
-            )
-            db.recurringMovementDao().insertMovements(recurring)
         }
     }
 }

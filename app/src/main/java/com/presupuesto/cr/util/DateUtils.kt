@@ -4,6 +4,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 object DateUtils {
     private val standardDateFormat = SimpleDateFormat("dd/MM/yyyy", Locale("es", "CR"))
@@ -45,6 +46,64 @@ object DateUtils {
             set(Calendar.MILLISECOND, 999)
         }
         return calendar.timeInMillis
+    }
+
+    fun addDaysToStartOfDay(baseTimestamp: Long, deltaDays: Int): Long {
+        val calendar = Calendar.getInstance().apply {
+            timeInMillis = baseTimestamp
+            add(Calendar.DAY_OF_YEAR, deltaDays)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        return calendar.timeInMillis
+    }
+
+    fun addDaysToEndOfDay(baseTimestamp: Long, deltaDays: Int): Long {
+        val calendar = Calendar.getInstance().apply {
+            timeInMillis = baseTimestamp
+            add(Calendar.DAY_OF_YEAR, deltaDays)
+            set(Calendar.HOUR_OF_DAY, 23)
+            set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59)
+            set(Calendar.MILLISECOND, 999)
+        }
+        return calendar.timeInMillis
+    }
+
+    fun utcDatePickerMillisToLocalStartOfDay(utcMillis: Long): Long {
+        val utcCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+            timeInMillis = utcMillis
+        }
+        val localCal = Calendar.getInstance().apply {
+            set(Calendar.YEAR, utcCal.get(Calendar.YEAR))
+            set(Calendar.MONTH, utcCal.get(Calendar.MONTH))
+            set(Calendar.DAY_OF_MONTH, utcCal.get(Calendar.DAY_OF_MONTH))
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        return localCal.timeInMillis
+    }
+
+    fun localMillisToUtcDatePickerMillis(localMillis: Long): Long {
+        val localCal = Calendar.getInstance().apply {
+            timeInMillis = localMillis
+        }
+        val utcCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+            clear()
+            set(
+                localCal.get(Calendar.YEAR),
+                localCal.get(Calendar.MONTH),
+                localCal.get(Calendar.DAY_OF_MONTH),
+                0,
+                0,
+                0
+            )
+        }
+        return utcCal.timeInMillis
     }
 
     fun getCurrentMonthBounds(): Pair<Long, Long> {

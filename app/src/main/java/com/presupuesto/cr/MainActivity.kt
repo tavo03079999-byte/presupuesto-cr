@@ -112,7 +112,7 @@ class MainActivity : FragmentActivity() {
         biometricAuthHelper = BiometricAuthHelper(this)
 
         val prefs = getSharedPreferences("settings_prefs_cr", Context.MODE_PRIVATE)
-        val isBiometricConfigured = prefs.getBoolean("biometric_enabled", true)
+        val isBiometricConfigured = prefs.getBoolean("biometric_enabled", false)
 
         setContent {
             val isDarkMode by settingsViewModel.isDarkThemeEnabled.collectAsState()

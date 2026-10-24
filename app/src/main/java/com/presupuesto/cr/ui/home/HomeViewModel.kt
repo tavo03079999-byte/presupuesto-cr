@@ -16,14 +16,15 @@ import com.presupuesto.cr.domain.model.SafeToSpendResult
 import com.presupuesto.cr.domain.usecase.CalculateSafeToSpendUseCase
 import com.presupuesto.cr.domain.usecase.ForecastEngineUseCase
 import com.presupuesto.cr.util.DateUtils
+import java.util.Calendar
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.util.Calendar
 
 class HomeViewModel(
     private val repository: FinanceRepository,
@@ -45,6 +46,14 @@ class HomeViewModel(
 
     val allTransactions: StateFlow<List<TransactionEntity>> = repository.getAllTransactions()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val netBalance: StateFlow<Double> = allTransactions
+        .map { txs ->
+            txs.sumOf { tx ->
+                if (tx.type == CategoryType.INCOME) tx.amount else -tx.amount
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 
     val pendingBcrCount: StateFlow<Int> = repository.getPendingBcrCountFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
@@ -80,6 +89,30 @@ class HomeViewModel(
                     categoryId = catId,
                     categoryName = cat?.name ?: "Otros",
                     colorHex = cat?.colorHex ?: "#2196F3",
+                    spentAmount = sum,
+                    percentageOfTotal = if (total > 0) (sum / total) * 100.0 else 0.0
+                )
+            }
+            .sortedByDescending { it.spentAmount }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val monthIncomeCategoriesSummary: StateFlow<List<CategoryExpenseSummary>> = combine(
+        allTransactions,
+        categories
+    ) { txs, cats ->
+        val (start, end) = DateUtils.getCurrentMonthBounds()
+        val monthIncomes = txs.filter { it.type == CategoryType.INCOME && it.timestamp in start..end }
+        val total = monthIncomes.sumOf { it.amount }
+        val catMap = cats.associateBy { it.id }
+
+        monthIncomes.groupBy { it.categoryId }
+            .map { (catId, list) ->
+                val cat = catMap[catId]
+                val sum = list.sumOf { it.amount }
+                CategoryExpenseSummary(
+                    categoryId = catId,
+                    categoryName = cat?.name ?: "Ingresos",
+                    colorHex = cat?.colorHex ?: "#4CAF50",
                     spentAmount = sum,
                     percentageOfTotal = if (total > 0) (sum / total) * 100.0 else 0.0
                 )
@@ -127,21 +160,23 @@ class HomeViewModel(
         val monthTxs = txs.filter { it.timestamp in start..end }
         val cal = Calendar.getInstance()
         val sampleDays = listOf(1, 3, 5, 8, 10, 13, 15, 18, 20, 23, 25, 28, 30)
-        sampleDays.mapIndexed { idx, day ->
+        sampleDays.map { day ->
             val dayAmount = monthTxs.filter { tx ->
                 cal.timeInMillis = tx.timestamp
                 val d = cal.get(Calendar.DAY_OF_MONTH)
                 kotlin.math.abs(d - day) <= 1
             }.sumOf { it.amount }
-            val displayVal = if (dayAmount > 0) dayAmount else (18000.0 + ((idx * 7919) % 45000))
-            day to displayVal
+            day to dayAmount
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
-        refreshFinancialState()
         viewModelScope.launch {
+            repository.syncAccountBalancesWithTransactions()
+            _safeToSpend.value = calculateSafeToSpendUseCase()
+            _quickForecast.value = forecastEngineUseCase(forecastMonths = 3)
             allTransactions.collect {
+                repository.syncAccountBalancesWithTransactions()
                 _safeToSpend.value = calculateSafeToSpendUseCase()
                 _quickForecast.value = forecastEngineUseCase(forecastMonths = 3)
             }
@@ -150,6 +185,7 @@ class HomeViewModel(
 
     fun refreshFinancialState() {
         viewModelScope.launch {
+            repository.syncAccountBalancesWithTransactions()
             _safeToSpend.value = calculateSafeToSpendUseCase()
             _quickForecast.value = forecastEngineUseCase(forecastMonths = 3)
         }

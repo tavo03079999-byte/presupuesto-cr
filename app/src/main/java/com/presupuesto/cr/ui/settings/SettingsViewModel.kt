@@ -42,7 +42,7 @@ class SettingsViewModel(
     private val _isDarkThemeEnabled = MutableStateFlow(prefs.getBoolean("dark_mode_enabled", true))
     val isDarkThemeEnabled: StateFlow<Boolean> = _isDarkThemeEnabled.asStateFlow()
 
-    private val _isBiometricEnabled = MutableStateFlow(prefs.getBoolean("biometric_enabled", true))
+    private val _isBiometricEnabled = MutableStateFlow(prefs.getBoolean("biometric_enabled", false))
     val isBiometricEnabled: StateFlow<Boolean> = _isBiometricEnabled.asStateFlow()
 
     private val _backupStatus = MutableStateFlow<String?>(null)

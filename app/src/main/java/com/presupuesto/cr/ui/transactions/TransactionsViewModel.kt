@@ -2,6 +2,7 @@ package com.presupuesto.cr.ui.transactions
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.presupuesto.cr.data.local.entity.AccountEntity
@@ -246,11 +247,32 @@ class TransactionsViewModel(
     fun processReceiptImage(bitmap: Bitmap) {
         _isScanningOcr.value = true
         viewModelScope.launch {
-            val result = receiptScannerHelper.processReceiptBitmap(bitmap)
-            result.onSuccess { data ->
-                _scannedReceiptResult.value = data
+            try {
+                val result = receiptScannerHelper.processReceiptBitmap(bitmap)
+                result.onSuccess { data ->
+                    _scannedReceiptResult.value = data
+                }
+            } catch (e: Exception) {
+                // Manejo seguro de OCR
+            } finally {
+                _isScanningOcr.value = false
             }
-            _isScanningOcr.value = false
+        }
+    }
+
+    fun processReceiptUri(uri: Uri) {
+        _isScanningOcr.value = true
+        viewModelScope.launch {
+            try {
+                val result = receiptScannerHelper.processReceiptUri(uri)
+                result.onSuccess { data ->
+                    _scannedReceiptResult.value = data
+                }
+            } catch (e: Exception) {
+                // Manejo seguro de OCR
+            } finally {
+                _isScanningOcr.value = false
+            }
         }
     }
 

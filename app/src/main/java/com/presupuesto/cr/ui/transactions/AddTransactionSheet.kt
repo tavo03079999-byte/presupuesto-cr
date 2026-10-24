@@ -1,11 +1,12 @@
 package com.presupuesto.cr.ui.transactions
 
+import android.Manifest
 import android.content.Context
-import android.graphics.Bitmap
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.result.launch
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -58,9 +59,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,6 +77,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import com.presupuesto.cr.data.local.entity.CategoryType
 import com.presupuesto.cr.data.local.entity.TransactionEntity
@@ -103,7 +106,9 @@ fun AddTransactionSheet(
     val isScanningOcr by viewModel.isScanningOcr.collectAsState()
     val scannedReceipt by viewModel.scannedReceiptResult.collectAsState()
 
-    var amountText by remember(existingTransaction) {
+    val editKey = existingTransaction?.id ?: -1L
+
+    var amountText by rememberSaveable(editKey) {
         mutableStateOf(
             if (existingTransaction != null) {
                 val longVal = existingTransaction.amount.toLong()
@@ -114,62 +119,148 @@ fun AddTransactionSheet(
             }
         )
     }
-    var noteText by remember(existingTransaction) {
+    var noteText by rememberSaveable(editKey) {
         mutableStateOf(existingTransaction?.note ?: "")
     }
-    var selectedType by remember(existingTransaction) {
+    var selectedTypeName by rememberSaveable(editKey) {
         mutableStateOf(
-            if (existingTransaction?.type == CategoryType.INCOME) CategoryType.INCOME
-            else CategoryType.EXPENSE
+            if (existingTransaction?.type == CategoryType.INCOME) CategoryType.INCOME.name
+            else CategoryType.EXPENSE.name
         )
     }
-    var selectedTimestamp by remember(existingTransaction) {
+    val selectedType = if (selectedTypeName == CategoryType.INCOME.name) {
+        CategoryType.INCOME
+    } else {
+        CategoryType.EXPENSE
+    }
+
+    var selectedTimestamp by rememberSaveable(editKey) {
         mutableLongStateOf(existingTransaction?.timestamp ?: System.currentTimeMillis())
     }
-    var selectedAccountId by remember(existingTransaction, accounts) {
+    var selectedAccountId by rememberSaveable(editKey) {
         mutableLongStateOf(existingTransaction?.accountId ?: accounts.firstOrNull()?.id ?: 1L)
     }
 
     val matchingCategories = categories.filter { it.type == selectedType }
-    var selectedCategoryId by remember(existingTransaction, selectedType, categories) {
+    var selectedCategoryId by rememberSaveable(editKey) {
         val initial = existingTransaction?.categoryId?.takeIf { id ->
             matchingCategories.any { it.id == id }
         } ?: matchingCategories.firstOrNull()?.id ?: categories.firstOrNull()?.id ?: 1L
         mutableLongStateOf(initial)
     }
 
-    var merchantText by remember(existingTransaction) {
+    LaunchedEffect(accounts) {
+        if (accounts.isNotEmpty() && accounts.none { it.id == selectedAccountId }) {
+            selectedAccountId = accounts.first().id
+        }
+    }
+
+    LaunchedEffect(selectedType, categories) {
+        val validForType = categories.filter { it.type == selectedType }
+        if (validForType.isNotEmpty() && validForType.none { it.id == selectedCategoryId }) {
+            selectedCategoryId = validForType.first().id
+        }
+    }
+
+    var merchantText by rememberSaveable(editKey) {
         mutableStateOf(existingTransaction?.merchant ?: "")
     }
 
-    val attachedImageUris = remember(existingTransaction) {
-        mutableStateListOf<String>().apply {
-            addAll(TransactionsViewModel.parseImageUris(existingTransaction?.receiptImagePath))
-        }
+    var attachedUrisEncoded by rememberSaveable(editKey) {
+        mutableStateOf(existingTransaction?.receiptImagePath ?: "")
     }
+    val attachedImageUris = TransactionsViewModel.parseImageUris(attachedUrisEncoded)
+
+    var pendingCameraFilePath by rememberSaveable(editKey) {
+        mutableStateOf<String?>(null)
+    }
+    var cameraErrorMessage by remember { mutableStateOf<String?>(null) }
 
     var showDatePicker by remember { mutableStateOf(false) }
     var previewImageUri by remember { mutableStateOf<String?>(null) }
 
     val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
-    ) { bitmap: Bitmap? ->
-        if (bitmap != null) {
-            val savedUri = saveBitmapToLocalStorage(context, bitmap)
-            if (savedUri != null) {
-                attachedImageUris.add(savedUri)
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        val path = pendingCameraFilePath
+        pendingCameraFilePath = null
+        if (success && !path.isNullOrBlank()) {
+            val capturedFile = File(path)
+            if (capturedFile.exists() && capturedFile.length() > 0L) {
+                val localFileUri = Uri.fromFile(capturedFile)
+                val currentUris = TransactionsViewModel.parseImageUris(attachedUrisEncoded)
+                attachedUrisEncoded = TransactionsViewModel.encodeImageUris(
+                    currentUris + localFileUri.toString()
+                ) ?: ""
+                cameraErrorMessage = null
+                viewModel.processReceiptUri(localFileUri)
+            } else {
+                cameraErrorMessage = "No se pudo guardar la foto tomada. Inténtalo nuevamente."
             }
-            viewModel.processReceiptImage(bitmap)
+        } else if (!path.isNullOrBlank()) {
+            try {
+                File(path).delete()
+            } catch (e: Exception) {
+                // Limpieza segura de archivo temporal cancelado
+            }
+        }
+    }
+
+    fun launchCameraSafely() {
+        try {
+            cameraErrorMessage = null
+            val receiptsDir = File(context.filesDir, "receipts").apply { mkdirs() }
+            val photoFile = File(receiptsDir, "receipt_${System.currentTimeMillis()}.jpg")
+            val contentUri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                photoFile
+            )
+            pendingCameraFilePath = photoFile.absolutePath
+            cameraLauncher.launch(contentUri)
+        } catch (e: Exception) {
+            pendingCameraFilePath = null
+            cameraErrorMessage = "No se pudo abrir la cámara en este dispositivo."
+            Toast.makeText(
+                context,
+                "No se pudo abrir la cámara en este dispositivo.",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            launchCameraSafely()
+        } else {
+            cameraErrorMessage = "Permiso de cámara denegado. Concédelo para fotografiar comprobantes."
+            Toast.makeText(
+                context,
+                "Debes conceder el permiso de cámara para tomar el comprobante.",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
     val multipleGalleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris: List<Uri> ->
-        uris.forEach { uri ->
-            val copiedUri = copyContentUriToLocalStorage(context, uri)
-            if (copiedUri != null) {
-                attachedImageUris.add(copiedUri)
+        if (uris.isNotEmpty()) {
+            val copiedList = mutableListOf<String>()
+            uris.forEach { uri ->
+                val copiedUri = copyContentUriToLocalStorage(context, uri)
+                if (copiedUri != null) {
+                    copiedList.add(copiedUri)
+                }
+            }
+            if (copiedList.isNotEmpty()) {
+                val currentUris = TransactionsViewModel.parseImageUris(attachedUrisEncoded)
+                attachedUrisEncoded = TransactionsViewModel.encodeImageUris(
+                    currentUris + copiedList
+                ) ?: ""
+                cameraErrorMessage = null
             }
         }
     }
@@ -237,7 +328,7 @@ fun AddTransactionSheet(
                     ) {
                         val isIncome = selectedType == CategoryType.INCOME
                         Surface(
-                            onClick = { selectedType = CategoryType.INCOME },
+                            onClick = { selectedTypeName = CategoryType.INCOME.name },
                             shape = RoundedCornerShape(16.dp),
                             border = if (isIncome) BorderStroke(1.dp, IncomeGreen) else null,
                             color = if (isIncome) IncomeGreen.copy(alpha = 0.2f) else Color.Transparent,
@@ -265,7 +356,7 @@ fun AddTransactionSheet(
 
                         val isExpense = selectedType == CategoryType.EXPENSE
                         Surface(
-                            onClick = { selectedType = CategoryType.EXPENSE },
+                            onClick = { selectedTypeName = CategoryType.EXPENSE.name },
                             shape = RoundedCornerShape(16.dp),
                             border = if (isExpense) BorderStroke(1.dp, ExpenseRed) else null,
                             color = if (isExpense) ExpenseRed.copy(alpha = 0.2f) else Color.Transparent,
@@ -473,7 +564,17 @@ fun AddTransactionSheet(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             OutlinedButton(
-                                onClick = { multipleGalleryLauncher.launch("image/*") },
+                                onClick = {
+                                    try {
+                                        multipleGalleryLauncher.launch("image/*")
+                                    } catch (e: Exception) {
+                                        Toast.makeText(
+                                            context,
+                                            "No se pudo abrir la galería.",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                },
                                 shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier.weight(1f)
                             ) {
@@ -482,7 +583,17 @@ fun AddTransactionSheet(
                                 Text("Galería", fontSize = 12.sp)
                             }
                             OutlinedButton(
-                                onClick = { cameraLauncher.launch() },
+                                onClick = {
+                                    val hasCameraPermission = ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.CAMERA
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                    if (hasCameraPermission) {
+                                        launchCameraSafely()
+                                    } else {
+                                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                    }
+                                },
                                 shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier.weight(1f)
                             ) {
@@ -496,10 +607,19 @@ fun AddTransactionSheet(
                             }
                         }
 
+                        cameraErrorMessage?.let { msg ->
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = msg,
+                                fontSize = 11.5.sp,
+                                color = ExpenseRed
+                            )
+                        }
+
                         if (attachedImageUris.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(10.dp))
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                items(attachedImageUris.toList()) { uriStr ->
+                                items(attachedImageUris) { uriStr ->
                                     Box(modifier = Modifier.size(68.dp)) {
                                         AsyncImage(
                                             model = uriStr,
@@ -515,7 +635,12 @@ fun AddTransactionSheet(
                                                 .align(Alignment.TopEnd)
                                                 .size(22.dp)
                                                 .background(ExpenseRed, CircleShape)
-                                                .clickable { attachedImageUris.remove(uriStr) },
+                                                .clickable {
+                                                    val currentUris = TransactionsViewModel.parseImageUris(attachedUrisEncoded)
+                                                    attachedUrisEncoded = TransactionsViewModel.encodeImageUris(
+                                                        currentUris.filter { it != uriStr }
+                                                    ) ?: ""
+                                                },
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
@@ -558,7 +683,7 @@ fun AddTransactionSheet(
                                                 categories.find { it.id == selectedCategoryId }?.name ?: "Movimiento"
                                             },
                                             merchant = merchantText.ifBlank { null },
-                                            receiptUris = attachedImageUris.toList(),
+                                            receiptUris = attachedImageUris,
                                             source = if (scannedReceipt != null) TransactionSource.OCR_RECEIPT else TransactionSource.MANUAL
                                         )
                                     } else {
@@ -571,7 +696,7 @@ fun AddTransactionSheet(
                                             timestamp = selectedTimestamp,
                                             note = noteText.ifBlank { "Movimiento editado" },
                                             merchant = merchantText.ifBlank { null },
-                                            receiptUris = attachedImageUris.toList()
+                                            receiptUris = attachedImageUris
                                         )
                                     }
                                     viewModel.clearScannedReceipt()
@@ -646,7 +771,10 @@ fun AddTransactionSheet(
                     ) {
                         OutlinedButton(
                             onClick = {
-                                attachedImageUris.remove(uriStr)
+                                val currentUris = TransactionsViewModel.parseImageUris(attachedUrisEncoded)
+                                attachedUrisEncoded = TransactionsViewModel.encodeImageUris(
+                                    currentUris.filter { it != uriStr }
+                                ) ?: ""
                                 previewImageUri = null
                             },
                             modifier = Modifier.weight(1f)
@@ -664,19 +792,6 @@ fun AddTransactionSheet(
                 }
             }
         }
-    }
-}
-
-private fun saveBitmapToLocalStorage(context: Context, bitmap: Bitmap): String? {
-    return try {
-        val receiptsDir = File(context.filesDir, "receipts").apply { mkdirs() }
-        val file = File(receiptsDir, "receipt_${System.currentTimeMillis()}.jpg")
-        FileOutputStream(file).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
-        }
-        Uri.fromFile(file).toString()
-    } catch (e: Exception) {
-        null
     }
 }
 
