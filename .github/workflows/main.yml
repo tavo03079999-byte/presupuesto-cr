@@ -17,18 +17,16 @@ jobs:
       - name: Checkout del repositorio
         uses: actions/checkout@v4
 
-      - name: Descomprimir SaldoX_Actualizado.zip si está presente
+      - name: Descomprimir SaldoX_Actualizado.zip
         run: |
-          for zipfile in *.zip; do
-            if [ -f "$zipfile" ]; then
-              echo "Descomprimiendo $zipfile..."
-              unzip -o "$zipfile"
-            fi
-          done
+          if [ -f "SaldoX_Actualizado.zip" ]; then
+            echo "Descomprimiendo SaldoX_Actualizado.zip..."
+            unzip -o SaldoX_Actualizado.zip || true
+          fi
 
       - name: Reparar estructura del proyecto
         run: |
-          # 1. Asegurar build.gradle.kts raíz limpio
+          # 1. Asegurar build.gradle.kts raíz limpio (apply false)
           cat << 'EOF' > build.gradle.kts
           plugins {
               alias(libs.plugins.android.application) apply false
@@ -45,9 +43,13 @@ jobs:
           fi
 
           # 3. Asegurar AndroidManifest.xml en ambas rutas
-          if [ ! -f "app/src/main/AndroidManifest.xml" ] && [ -f "src/main/AndroidManifest.xml" ]; then
+          if [ -f "src/main/AndroidManifest.xml" ] && [ ! -f "app/src/main/AndroidManifest.xml" ]; then
             mkdir -p app/src/main
             cp src/main/AndroidManifest.xml app/src/main/AndroidManifest.xml
+          fi
+          if [ -f "app/src/main/AndroidManifest.xml" ] && [ ! -f "src/main/AndroidManifest.xml" ]; then
+            mkdir -p src/main
+            cp app/src/main/AndroidManifest.xml src/main/AndroidManifest.xml
           fi
 
       - name: Configurar Java 17
