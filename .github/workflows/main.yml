@@ -1,4 +1,4 @@
-name: Compilar APK Android
+name: Compilar APK SaldoX
 
 on:
   push:
@@ -14,40 +14,94 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout del codigo
+      - name: Checkout del repositorio
         uses: actions/checkout@v4
+
+      - name: Descomprimir SaldoX_Actualizado.zip si está presente
+        run: |
+          for zipfile in *.zip; do
+            if [ -f "$zipfile" ]; then
+              echo "Descomprimiendo $zipfile..."
+              unzip -o "$zipfile"
+            fi
+          done
+
+      - name: Reparar estructura del proyecto
+        run: |
+          # 1. Asegurar build.gradle.kts raíz limpio
+          cat << 'EOF' > build.gradle.kts
+          plugins {
+              alias(libs.plugins.android.application) apply false
+              alias(libs.plugins.kotlin.android) apply false
+              alias(libs.plugins.kotlin.kapt) apply false
+          }
+          EOF
+
+          # 2. Asegurar que settings.gradle.kts incluya :app
+          if [ ! -f "settings.gradle.kts" ]; then
+            echo 'include(":app")' > settings.gradle.kts
+          elif ! grep -q 'include(":app")' settings.gradle.kts; then
+            echo 'include(":app")' >> settings.gradle.kts
+          fi
+
+          # 3. Asegurar AndroidManifest.xml en ambas rutas
+          if [ ! -f "app/src/main/AndroidManifest.xml" ] && [ -f "src/main/AndroidManifest.xml" ]; then
+            mkdir -p app/src/main
+            cp src/main/AndroidManifest.xml app/src/main/AndroidManifest.xml
+          fi
 
       - name: Configurar Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
 
-      - name: Configurar Gradle
+      - name: Configurar Gradle 8.6
         uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.6'
 
-      - name: Asegurar Gradle Wrapper
+      - name: Generar y asegurar Gradle Wrapper
         run: |
           gradle wrapper --gradle-version 8.6 || true
           chmod +x gradlew || true
 
-      - name: Compilar APK Debug
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: Compilar APK Debug con Gradle
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x gradlew
+            ./gradlew :app:assembleDebug --no-daemon --stacktrace || ./gradlew assembleDebug --no-daemon --stacktrace
+          else
+            gradle :app:assembleDebug --no-daemon --stacktrace || gradle assembleDebug --no-daemon --stacktrace
+          fi
 
-      - name: Subir APK como Descarga
+      - name: Localizar APK generado
+        run: |
+          mkdir -p build_output
+          if [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+            cp app/build/outputs/apk/debug/app-debug.apk build_output/app-debug.apk
+          else
+            find . -name "*-debug.apk" -exec cp {} build_output/app-debug.apk \;
+          fi
+
+      - name: Subir APK como Artefacto
         uses: actions/upload-artifact@v4
         with:
-          name: PresupuestoCR-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: SaldoX-APK
+          path: build_output/app-debug.apk
+          retention-days: 14
 
       - name: Publicar Release para Celular
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        continue-on-error: true
         with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: Presupuesto Inteligente CR v1.0.${{ github.run_number }}
+          tag_name: v2.0.${{ github.run_number }}
+          name: SaldoX v2.0.${{ github.run_number }}
           body: |
-            Descarga el archivo app-debug.apk directamente en tu celular Android.
-          files: app/build/outputs/apk/debug/app-debug.apk
+            ### 📱 ¡Tu APK de SaldoX está listo!
+            
+            Descarga el archivo adjunto `app-debug.apk` directamente en tu teléfono o súbelo a Google Drive.
+          files: build_output/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
